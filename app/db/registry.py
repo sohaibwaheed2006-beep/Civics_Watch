@@ -14,15 +14,27 @@ from __future__ import annotations
 from app.db.base import Base
 
 # Imported for their side effect of registering mappers on Base.metadata.
+from app.models.assignment import Assignment  # noqa: F401
 from app.models.department import Department  # noqa: F401
+from app.models.notification import Notification  # noqa: F401
+from app.models.report import Report  # noqa: F401
+from app.models.report_photo import ReportPhoto  # noqa: F401
+from app.models.status_history import StatusHistory  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.vote import Vote  # noqa: F401
 
-# Report domain (Developer 2) - add imports here, for example:
-#   from app.models.report import Report  # noqa: F401
-#   from app.models.report_photo import ReportPhoto  # noqa: F401
-#   from app.models.vote import Vote  # noqa: F401
-
-__all__ = ["Base", "Department", "User", "target_metadata"]
+__all__ = [
+    "Base",
+    "Assignment",
+    "Department",
+    "Notification",
+    "Report",
+    "ReportPhoto",
+    "StatusHistory",
+    "User",
+    "Vote",
+    "target_metadata",
+]
 
 #: What Alembic compares against the live database.
 target_metadata = Base.metadata

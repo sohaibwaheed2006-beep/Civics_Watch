@@ -90,10 +90,12 @@ def test_aggregate_router_exists_and_is_unprefixed() -> None:
 # ---------------------------------------------------------------------------
 # Where router.py mounts each domain router
 # ---------------------------------------------------------------------------
-def test_v1_router_mounts_the_three_core_domains() -> None:
+def test_v1_router_mounts_the_core_domains() -> None:
+    """Core (Developer 1) and report-domain (Developer 2) routers are all mounted."""
     mounts = _included_prefixes(router_module.api_router)
 
-    assert len(mounts) == 3, f"expected 3 mounted domain routers, got {len(mounts)}"
+    # Core domains must still be present; the report domain adds more mounts.
+    assert len(mounts) >= 3, f"expected at least 3 mounted routers, got {len(mounts)}"
 
 
 @pytest.mark.parametrize(

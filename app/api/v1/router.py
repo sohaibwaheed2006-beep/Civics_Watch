@@ -25,7 +25,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, departments, users
+from app.api.v1.endpoints import (
+    analytics,
+    assignments,
+    auth,
+    departments,
+    notifications,
+    report_photos,
+    reports,
+    users,
+    votes,
+)
 
 #: Version-1 aggregate router. Mounted under ``settings.API_V1_PREFIX``.
 api_router = APIRouter()
@@ -40,18 +50,23 @@ api_router.include_router(
 )
 
 # ---------------------------------------------------------------------------
-# Report domain (Developer 2) - add here at integration time, for example:
-#
-#   from app.api.v1.endpoints import reports, votes, assignments, notifications
-#
-#   api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
-#   api_router.include_router(votes.router, prefix="/votes", tags=["Votes"])
-#   api_router.include_router(
-#       assignments.router, prefix="/assignments", tags=["Assignments"]
-#   )
-#   api_router.include_router(
-#       notifications.router, prefix="/notifications", tags=["Notifications"]
-#   )
+# Report domain (Developer 2)
 # ---------------------------------------------------------------------------
+# Reports mount first so that /reports/{id}/* paths exist before the photo and
+# vote sub-routers attach their nested paths.
+api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
+api_router.include_router(
+    report_photos.router, prefix="/reports", tags=["Report Photos"]
+)
+api_router.include_router(votes.router, prefix="/reports", tags=["Votes"])
+# Assignments: a mix of /reports/{id}/assign, /assignments/my,
+# /departments/{id}/queue - all under the same router so the paths line up.
+api_router.include_router(assignments.router)
+api_router.include_router(
+    notifications.router, prefix="/notifications", tags=["Notifications"]
+)
+api_router.include_router(
+    analytics.router, prefix="/analytics", tags=["Analytics"]
+)
 
 __all__ = ["api_router"]

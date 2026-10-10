@@ -92,6 +92,34 @@ class Settings(BaseSettings):
     SUPABASE_PUBLISHABLE_KEY: str = ""
     SUPABASE_SECRET_KEY: str = ""
 
+    # --- Report domain ----------------------------------------------------
+    #: Maximum photos per report. Keeps a single actor from flooding storage.
+    MAX_PHOTOS_PER_REPORT: int = 8
+
+    #: Duplicate-detection radius in metres. Reports closer than this and in a
+    #: compatible category are candidates for duplicate flagging.
+    DUPLICATE_RADIUS_METERS: int = 150
+
+    #: Time window (hours) within which two reports can be duplicates.
+    DUPLICATE_TIME_WINDOW_HOURS: int = 168  # one week
+
+    #: Minimum duplicate score (0..1) for a candidate to be surfaced.
+    DUPLICATE_MIN_SCORE: float = 0.55
+
+    # --- AI (optional) ----------------------------------------------------
+    AI_ENABLED: bool = False
+    AI_PROVIDER: str = "deterministic"
+    AI_API_KEY: str = ""
+    AI_MODEL: str = ""
+    AI_TIMEOUT_SECONDS: int = 10
+
+    # --- Google AI (Gemini) ----------------------------------------------
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-flash-lite-latest"
+
+    # --- Google Maps -----------------------------------------------------
+    GOOGLE_MAPS_API_KEY: str = ""
+
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------
@@ -251,6 +279,16 @@ class Settings(BaseSettings):
             self.SUPABASE_URL.strip()
             and (self.SUPABASE_PUBLISHABLE_KEY.strip() or self.SUPABASE_SECRET_KEY.strip())
         )
+
+    @property
+    def gemini_configured(self) -> bool:
+        """True when a Gemini API key is set."""
+        return bool(self.GEMINI_API_KEY.strip())
+
+    @property
+    def google_maps_configured(self) -> bool:
+        """True when a Google Maps API key is set."""
+        return bool(self.GOOGLE_MAPS_API_KEY.strip())
 
     @property
     def docs_enabled(self) -> bool:
