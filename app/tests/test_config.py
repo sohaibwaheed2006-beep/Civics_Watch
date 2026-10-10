@@ -27,6 +27,9 @@ def _settings(**overrides: object) -> Settings:
         "CORS_ORIGINS": "*",
         "UPLOAD_DIR": "uploads",
         "MAX_UPLOAD_SIZE_MB": 5,
+        "SUPABASE_URL": "",
+        "SUPABASE_PUBLISHABLE_KEY": "",
+        "SUPABASE_SECRET_KEY": "",
     }
     base.update(overrides)
     return Settings(**base)  # type: ignore[arg-type]
@@ -169,4 +172,25 @@ def test_docs_disabled_only_in_production_without_debug() -> None:
     assert (
         _settings(APP_ENV="production", DEBUG=False, SECRET_KEY="real").docs_enabled
         is False
+    )
+
+
+# ---------------------------------------------------------------------------
+# Supabase settings
+# ---------------------------------------------------------------------------
+def test_supabase_configured_detection() -> None:
+    assert _settings().supabase_configured is False
+    assert (
+        _settings(
+            SUPABASE_URL="https://test.supabase.co",
+            SUPABASE_PUBLISHABLE_KEY="sb_pub_123",
+        ).supabase_configured
+        is True
+    )
+    assert (
+        _settings(
+            SUPABASE_URL="https://test.supabase.co",
+            SUPABASE_SECRET_KEY="sb_sec_123",
+        ).supabase_configured
+        is True
     )

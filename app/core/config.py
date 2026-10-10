@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE_MB: int = 5
 
+    # --- Supabase ---------------------------------------------------------
+    SUPABASE_URL: str = ""
+    SUPABASE_PUBLISHABLE_KEY: str = ""
+    SUPABASE_SECRET_KEY: str = ""
+
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------
@@ -238,6 +243,14 @@ class Settings(BaseSettings):
     def database_configured(self) -> bool:
         """False while ``DATABASE_URL`` still holds the shipped placeholder."""
         return "CHANGE_ME" not in self.DATABASE_URL
+
+    @property
+    def supabase_configured(self) -> bool:
+        """True when SUPABASE_URL and at least one Supabase key are configured."""
+        return bool(
+            self.SUPABASE_URL.strip()
+            and (self.SUPABASE_PUBLISHABLE_KEY.strip() or self.SUPABASE_SECRET_KEY.strip())
+        )
 
     @property
     def docs_enabled(self) -> bool:
