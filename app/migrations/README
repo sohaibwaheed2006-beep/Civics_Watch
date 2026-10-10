@@ -1,0 +1,17 @@
+Alembic migrations for the Neighborhood Issue Reporter backend.
+
+Run every command from the `backend/` directory, with the virtual environment
+active and DATABASE_URL set in `.env`.
+
+    alembic current                 show the applied revision
+    alembic history --verbose       list all revisions
+    alembic upgrade head            apply everything
+    alembic downgrade -1            undo the last revision
+    alembic upgrade head --sql      print SQL without connecting
+
+The revision chain starts at `0001_core` (users + departments). The
+report-domain migration must use `down_revision = "0001_core"` so the two
+developers' schemas apply in a defined order.
+
+The database URL is read from the application settings in `env.py`, not from
+`alembic.ini`. Never put credentials in a committed file.
