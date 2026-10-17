@@ -1,17 +1,39 @@
 import React, { useState } from 'react';
-import { ReportAttachment } from '@/types/report';
+import { ReportAttachment, ReportCategory } from '@/types/report';
 import { Modal } from '@/components/ui/modal';
 import { formatFileSize } from '@/lib/formatters';
 import { Eye, ImageIcon } from 'lucide-react';
+import { getCategoryCoverImage, handleImageFallback } from '@/lib/category-images';
 
 export interface PhotoGalleryProps {
   photos: ReportAttachment[];
+  category?: ReportCategory;
 }
 
-export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos }) => {
+export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos, category }) => {
   const [activePhoto, setActivePhoto] = useState<ReportAttachment | null>(null);
 
   if (!photos || photos.length === 0) {
+    if (category) {
+      const fallbackUrl = getCategoryCoverImage(category);
+      return (
+        <div className="space-y-2">
+          <div className="relative aspect-video max-w-sm rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-xs">
+            <img
+              src={fallbackUrl}
+              alt="Category reference"
+              onError={(e) => handleImageFallback(e, category)}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute bottom-0 inset-x-0 bg-slate-900/70 p-2 text-[11px] text-white">
+              Category reference visual (no photos uploaded by reporter)
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center gap-2 p-4 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 bg-slate-50/50">
         <ImageIcon className="h-4 w-4 text-slate-400" />
@@ -32,6 +54,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos }) => {
             <img
               src={photo.url}
               alt={photo.filename}
+              onError={(e) => handleImageFallback(e, category)}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               loading="lazy"
             />

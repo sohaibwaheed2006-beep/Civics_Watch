@@ -6,17 +6,16 @@ Mounted under ``/reports``: paths are ``/reports/{id}/photos`` and
 
 from __future__ import annotations
 
-from pathlib import Path as FsPath
 from typing import Annotated
 
-from fastapi import APIRouter, File, Path, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, File, Path, UploadFile, status
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import func, select
 
 from app.api.deps import CurrentUser, DbSession, SettingsDep
+from app.core.config import Settings
 from app.core.enums import UserRole
 from app.core.exceptions import (
-    BadRequestError,
     ConflictError,
     NotFoundError,
     PermissionDeniedError,
@@ -38,15 +37,32 @@ _AUTH_ERRORS: dict[int | str, dict[str, object]] = {
 }
 
 
-def _photo_url(request: Request, photo_id: int) -> str:
-    """Build a URL to the dev photo-serving endpoint for this photo id.
+def _photo_url(settings: Settings, photo_id: int) -> str:
+    """Build a *same-origin, relative* URL to the photo-serving endpoint.
 
-    Internal storage keys never appear in responses.
+    A relative path (``/api/v1/reports/photos/{id}/content``) loads from
+    whatever origin served the app — the Vite dev origin, a public tunnel, or
+    another device on the LAN — and is forwarded to the backend by the dev
+    proxy. An absolute URL baked from the request host (``127.0.0.1:8000``)
+    only worked for a browser on this exact machine and showed a broken image
+    everywhere else. Internal storage keys never appear in responses.
     """
-    return str(request.url_for("get_report_photo_bytes", photo_id=photo_id))
+    return f"{settings.API_V1_PREFIX}/reports/photos/{photo_id}/content"
 
 
-def _to_photo_read(photo: ReportPhoto, request: Request) -> ReportPhotoRead:
+def _to_photo_read(photo: ReportPhoto, settings: Settings) -> ReportPhotoRead:
+    # With object storage (Supabase) the public CDN URL is absolute and
+    # origin-independent, so the <img> loads no matter where the frontend and
+    # API are hosted (e.g. a Vercel SPA calling a Render API). The local-disk
+    # backend has no public URL, so fall back to the same-origin content route.
+    url: str | None = None
+    if settings.photo_storage_is_supabase:
+        try:
+            url = get_storage(settings).url(photo.storage_key)
+        except Exception:
+            url = None
+    if not url:
+        url = _photo_url(settings, photo.id)
     return ReportPhotoRead(
         id=photo.id,
         report_id=photo.report_id,
@@ -54,7 +70,7 @@ def _to_photo_read(photo: ReportPhoto, request: Request) -> ReportPhotoRead:
         content_type=photo.content_type,
         file_size=photo.file_size,
         created_at=photo.created_at,
-        url=_photo_url(request, photo.id),
+        url=url,
     )
 
 
@@ -75,7 +91,6 @@ async def upload_photo(
     db: DbSession,
     current_user: CurrentUser,
     settings: SettingsDep,
-    request: Request,
     report_id: Annotated[int, Path(ge=1)],
     file: Annotated[UploadFile, File(description="Image to attach.")],
 ) -> ReportPhotoRead:
@@ -144,7 +159,7 @@ async def upload_photo(
             pass
         raise
 
-    return _to_photo_read(photo, request)
+    return _to_photo_read(photo, settings)
 
 
 @router.get(
@@ -160,7 +175,7 @@ async def upload_photo(
 def list_photos(
     db: DbSession,
     current_user: CurrentUser,
-    request: Request,
+    settings: SettingsDep,
     report_id: Annotated[int, Path(ge=1)],
 ) -> list[ReportPhotoRead]:
     report = db.get(Report, report_id)
@@ -171,7 +186,7 @@ def list_photos(
         .where(ReportPhoto.report_id == report.id)
         .order_by(ReportPhoto.id.asc())
     )
-    return [_to_photo_read(p, request) for p in db.execute(stmt).scalars().all()]
+    return [_to_photo_read(p, settings) for p in db.execute(stmt).scalars().all()]
 
 
 @router.delete(
@@ -223,30 +238,41 @@ def delete_photo(
 #
 # In production, replace with an S3 presigned URL or an nginx X-Accel route.
 # Here it goes through the API so the storage abstraction stays authoritative.
+#
+# This route is intentionally UNAUTHENTICATED: browsers load it through an
+# ``<img src>`` tag, which cannot attach the bearer token, so requiring auth
+# here makes every photo 404/401 in the UI. Reports (and their photos) are
+# already public on the issue map, so serving the bytes by opaque photo id is
+# acceptable for this dev path. A production CDN/presigned-URL layer replaces
+# it entirely.
 # ---------------------------------------------------------------------------
 @router.get(
     "/photos/{photo_id}/content",
     name="get_report_photo_bytes",
-    summary="Serve the bytes of a photo (dev)",
+    summary="Serve a photo (public): redirect to object storage, or stream bytes",
     responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse},
         status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
     },
 )
 def get_photo_bytes(
     db: DbSession,
-    current_user: CurrentUser,
     settings: SettingsDep,
     photo_id: Annotated[int, Path(ge=1)],
-) -> FileResponse:
+) -> Response:
     photo = db.get(ReportPhoto, photo_id)
     if photo is None:
         raise NotFoundError("Photo not found.")
     storage = get_storage(settings)
+
+    # Object-storage backends (Supabase) expose a CDN URL: redirect the browser
+    # there so the bytes never round-trip through the API. The local-disk
+    # backend returns None and we stream the bytes instead.
+    public_url = storage.url(photo.storage_key)
+    if public_url:
+        return RedirectResponse(public_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
     try:
-        path: FsPath = storage.path(photo.storage_key)
-    except BadRequestError:
+        data = storage.read(photo.storage_key)
+    except Exception:
         raise NotFoundError("Photo not found.")
-    if not path.exists():
-        raise NotFoundError("Photo not found.")
-    return FileResponse(path, media_type=photo.content_type)
+    return Response(content=data, media_type=photo.content_type)

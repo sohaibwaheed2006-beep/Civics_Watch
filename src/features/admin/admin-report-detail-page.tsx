@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reportService } from '@/services/report-service';
 import { departmentService } from '@/services/department-service';
 import { userService } from '@/services/user-service';
+import { aiService } from '@/services/ai-service';
 import { useToast } from '@/hooks/use-toast';
 import { getPermittedStatusTransitions } from '@/lib/permissions';
 import { formatCategory, formatCoordinates, formatDateTime } from '@/lib/formatters';
@@ -12,6 +13,7 @@ import { StatusBadge } from '@/components/data-display/status-badge';
 import { PriorityBadge } from '@/components/data-display/priority-badge';
 import { StatusTimeline } from '@/components/data-display/status-timeline';
 import { PhotoGallery } from '@/components/data-display/photo-gallery';
+import { ReportLocationMap } from '@/components/maps/report-location-map';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -22,10 +24,14 @@ import { ReportPriority, ReportStatus } from '@/types/report';
 import {
   MapPin,
   UserCheck,
-  User,
   Clock,
   Calendar,
+  Sparkles,
+  AlertTriangle,
+  Layers,
 } from 'lucide-react';
+import { Avatar } from '@/components/ui/avatar';
+import { getDepartmentCoverImage } from '@/lib/category-images';
 
 export const AdminReportDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -77,6 +83,22 @@ export const AdminReportDetailPage: React.FC = () => {
 
   const availableWorkers = usersData?.data || [];
 
+  // AI auto-route suggestion. Runs automatically when the report loads so the
+  // admin always sees a worker recommendation; the button below just re-runs it.
+  const autoRouteQuery = useQuery({
+    queryKey: ['auto-route', id],
+    queryFn: () => (id ? aiService.autoRoute(id) : Promise.reject('No ID')),
+    enabled: Boolean(id),
+    staleTime: 60_000,
+  });
+
+  // Cluster membership (preloaded when a cluster id exists on the report).
+  const clusterQuery = useQuery({
+    queryKey: ['report-cluster', id],
+    queryFn: () => (id ? aiService.cluster(Number(id)) : Promise.reject('No ID')),
+    enabled: Boolean(id),
+  });
+
   // Mutations
   const updateStatusMutation = useMutation({
     mutationFn: (newStatus: ReportStatus) =>
@@ -94,15 +116,20 @@ export const AdminReportDetailPage: React.FC = () => {
   });
 
   const assignMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (vars: {
+      workerId: string;
+      departmentId?: string;
+      priority?: ReportPriority;
+      deadline?: string;
+    }) =>
       report && user
         ? reportService.assignReport(
             report.id,
             {
-              workerId: selectedWorkerId,
-              departmentId: selectedDeptId,
-              priority: selectedPriority,
-              deadline: deadlineDate || undefined,
+              workerId: vars.workerId,
+              departmentId: vars.departmentId,
+              priority: vars.priority,
+              deadline: vars.deadline || undefined,
             },
             user
           )
@@ -115,6 +142,32 @@ export const AdminReportDetailPage: React.FC = () => {
     },
     onError: () => toast.error('Failed to assign worker.'),
   });
+
+  // Auto-assignment: as soon as the AI suggestion arrives, pre-select the
+  // recommended department and worker so the admin only has to confirm. We
+  // only pre-fill empty fields, so a manual choice is never overwritten.
+  const suggestion = autoRouteQuery.data;
+  React.useEffect(() => {
+    if (!suggestion) return;
+    if (suggestion.departmentId && !selectedDeptId) {
+      setSelectedDeptId(String(suggestion.departmentId));
+    }
+    if (suggestion.suggestedWorker && !selectedWorkerId) {
+      setSelectedWorkerId(String(suggestion.suggestedWorker.workerId));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestion]);
+
+  // One-click dispatch straight from the suggestion (the "final confirmation").
+  const confirmAndDispatch = () => {
+    const worker = suggestion?.suggestedWorker?.workerId;
+    if (!worker) return;
+    assignMutation.mutate({
+      workerId: String(worker),
+      departmentId: suggestion?.departmentId ? String(suggestion.departmentId) : undefined,
+      priority: report?.priority,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -215,9 +268,13 @@ export const AdminReportDetailPage: React.FC = () => {
 
         {/* Reporter info badge */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
-          <div className="flex items-center gap-1.5">
-            <User className="h-3.5 w-3.5 text-slate-400" />
-            <span>Citizen: </span>
+          <div className="flex items-center gap-2">
+            <Avatar
+              alt={report.citizenName}
+              fallback={report.citizenName}
+              role="citizen"
+              size="xs"
+            />
             <span className="font-semibold text-slate-800">{report.citizenName}</span>
             <span className="text-slate-400">({report.citizenEmail})</span>
           </div>
@@ -228,6 +285,168 @@ export const AdminReportDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI insights banner: resolution flag + duplicate cluster + routing. */}
+      {(report.resolutionFlaggedForReview ||
+        (report.incidentClusterId && (clusterQuery.data as any)?.members?.length > 1)) && (
+        <div className="space-y-3">
+          {report.resolutionFlaggedForReview && (
+            <div
+              role="alert"
+              className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900"
+            >
+              <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold">Resolution flagged by AI vision check</p>
+                <p>
+                  Fix photo match score:{' '}
+                  <span className="font-mono font-semibold">
+                    {(report.resolutionPhotoMatchScore ?? 0).toFixed(2)}
+                  </span>
+                  . {report.resolutionReviewReason || 'Reason unavailable.'}
+                </p>
+                <p className="text-rose-800">
+                  Audit the closure manually, or reopen the report if the fix
+                  photo does not actually show the described repair.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {report.incidentClusterId &&
+            (clusterQuery.data as any)?.members?.length > 1 && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-xs text-indigo-900">
+                <Layers className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">
+                    Part of incident cluster #{report.incidentClusterId} (
+                    {(clusterQuery.data as any).members.length} reports)
+                  </p>
+                  <p>
+                    Canonical report: #
+                    {(clusterQuery.data as any).canonicalReportId}. Resolving the
+                    canonical cascades the closure to all cluster members.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {(clusterQuery.data as any).members
+                      .filter((m: any) => String(m.id) !== String(report.id))
+                      .slice(0, 10)
+                      .map((m: any) => (
+                        <Link
+                          key={m.id}
+                          to={`/admin/reports/${m.id}`}
+                          className="rounded-md border border-indigo-300 bg-white px-2 py-0.5 font-mono text-[11px] text-indigo-800 hover:bg-indigo-100"
+                        >
+                          #{m.id}
+                        </Link>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            )}
+        </div>
+      )}
+
+      {/* AI auto-routing suggestion. Admin clicks to fetch; clicking Apply
+          prefills the Assign modal with the suggested department + worker. */}
+      <Card className="border-teal-200/80 bg-teal-50/40 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-teal-600" />
+            <span>AI triage suggestion</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!autoRouteQuery.data && (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-slate-600">
+                {autoRouteQuery.isFetching
+                  ? 'Analyzing workload and recent on-time performance to recommend the best worker…'
+                  : 'The AI picks the best department and worker based on current workload and recent on-time performance.'}
+              </p>
+              <Button
+                size="sm"
+                onClick={() => autoRouteQuery.refetch()}
+                isLoading={autoRouteQuery.isFetching}
+                leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+              >
+                {autoRouteQuery.isFetching ? 'Analyzing' : 'Re-run suggestion'}
+              </Button>
+            </div>
+          )}
+          {autoRouteQuery.data && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="rounded-lg bg-white border border-slate-200 p-3">
+                <p className="text-slate-400 font-medium">Suggested department</p>
+                <p className="font-semibold text-slate-900 mt-0.5">
+                  {autoRouteQuery.data.departmentName || 'No match'}
+                </p>
+              </div>
+              <div className="rounded-lg bg-white border border-slate-200 p-3">
+                <p className="text-slate-400 font-medium">Suggested worker</p>
+                {autoRouteQuery.data.suggestedWorker ? (
+                  <>
+                    <p className="font-semibold text-slate-900 mt-0.5">
+                      {autoRouteQuery.data.suggestedWorker.workerName}
+                    </p>
+                    <p className="text-slate-500 mt-0.5">
+                      {autoRouteQuery.data.suggestedWorker.openAssignments} open ·{' '}
+                      {Math.round(
+                        autoRouteQuery.data.suggestedWorker.recentOnTimeRate * 100
+                      )}
+                      % on-time · score{' '}
+                      {autoRouteQuery.data.suggestedWorker.score.toFixed(2)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="font-semibold text-slate-500 mt-0.5">
+                    No eligible worker found.
+                  </p>
+                )}
+              </div>
+              <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+                {!report.assignedWorkerId && autoRouteQuery.data.suggestedWorker ? (
+                  <p className="text-[11px] text-teal-800 font-medium">
+                    Auto-assigned to{' '}
+                    <span className="font-semibold">
+                      {autoRouteQuery.data.suggestedWorker.workerName}
+                    </span>{' '}
+                    — pending your confirmation.
+                  </p>
+                ) : (
+                  <span />
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const dept = autoRouteQuery.data?.departmentId;
+                      const worker = autoRouteQuery.data?.suggestedWorker?.workerId;
+                      if (dept) setSelectedDeptId(String(dept));
+                      if (worker) setSelectedWorkerId(String(worker));
+                      setSelectedPriority(report.priority);
+                      setIsAssignModalOpen(true);
+                    }}
+                  >
+                    Review / change
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={!autoRouteQuery.data.suggestedWorker}
+                    isLoading={assignMutation.isPending}
+                    onClick={confirmAndDispatch}
+                    leftIcon={<UserCheck className="h-3.5 w-3.5" />}
+                  >
+                    {report.assignedWorkerId ? 'Re-dispatch' : 'Confirm & Dispatch'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Grid: Details & Governance metadata */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -251,7 +470,7 @@ export const AdminReportDetailPage: React.FC = () => {
               <CardTitle className="text-base">Photo Evidence</CardTitle>
             </CardHeader>
             <CardContent>
-              <PhotoGallery photos={report.photos} />
+              <PhotoGallery photos={report.photos} category={report.category} />
             </CardContent>
           </Card>
         </div>
@@ -267,18 +486,36 @@ export const AdminReportDetailPage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
-              <div>
-                <p className="text-slate-400 font-medium">Department</p>
-                <p className="font-semibold text-slate-800 text-sm mt-0.5">
-                  {report.departmentName || 'Not Assigned'}
-                </p>
+              <div className="flex items-center gap-2.5">
+                <img
+                  src={getDepartmentCoverImage(report.departmentId, report.departmentName)}
+                  alt=""
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                  className="h-8 w-10 rounded-md object-cover shrink-0 border border-slate-200"
+                />
+                <div>
+                  <p className="text-slate-400 font-medium">Department</p>
+                  <p className="font-semibold text-slate-800 text-sm">
+                    {report.departmentName || 'Not Assigned'}
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <p className="text-slate-400 font-medium">Assigned Worker</p>
-                <p className="font-semibold text-slate-800 text-sm mt-0.5">
-                  {report.assignedWorkerName || 'Pending Dispatch'}
-                </p>
+              <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
+                <Avatar
+                  alt={report.assignedWorkerName || 'Field Technician'}
+                  fallback={report.assignedWorkerName || 'T'}
+                  role="worker"
+                  size="sm"
+                />
+                <div>
+                  <p className="text-slate-400 font-medium">Assigned Worker</p>
+                  <p className="font-semibold text-slate-800 text-sm">
+                    {report.assignedWorkerName || 'Pending Dispatch'}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -299,6 +536,13 @@ export const AdminReportDetailPage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
+              <ReportLocationMap
+                latitude={report.latitude}
+                longitude={report.longitude}
+                status={report.status}
+                priority={report.priority}
+              />
+
               <div>
                 <p className="text-slate-400 font-medium">Address</p>
                 <p className="font-semibold text-slate-800 mt-0.5">
@@ -406,7 +650,14 @@ export const AdminReportDetailPage: React.FC = () => {
               Cancel
             </Button>
             <Button
-              onClick={() => assignMutation.mutate()}
+              onClick={() =>
+                assignMutation.mutate({
+                  workerId: selectedWorkerId,
+                  departmentId: selectedDeptId,
+                  priority: selectedPriority,
+                  deadline: deadlineDate || undefined,
+                })
+              }
               isLoading={assignMutation.isPending}
               disabled={!selectedWorkerId}
             >

@@ -24,11 +24,21 @@ __all__ = [
     "IMAGE_SIGNATURES",
     "Storage",
     "LocalFilesystemStorage",
+    "SupabaseImageStorage",
     "get_storage",
     "validate_image",
     "generate_storage_key",
     "ensure_safe_relative_path",
 ]
+
+#: Extension -> MIME type, so a stored object is served with the right content
+#: type (a public URL with the wrong type makes the browser download, not show).
+_EXTENSION_CONTENT_TYPE: Final[dict[str, str]] = {
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "webp": "image/webp",
+}
 
 #: MIME types the API will accept for a photo upload.
 ALLOWED_CONTENT_TYPES: Final[frozenset[str]] = frozenset(
@@ -112,6 +122,8 @@ class Storage(Protocol):
     def save(self, key: str, data: bytes) -> None: ...
     def delete(self, key: str) -> None: ...
     def exists(self, key: str) -> bool: ...
+    def read(self, key: str) -> bytes: ...
+    def url(self, key: str) -> str | None: ...
     def path(self, key: str) -> Path: ...
 
 
@@ -154,10 +166,90 @@ class LocalFilesystemStorage:
         except Exception:
             return False
 
+    def read(self, key: str) -> bytes:
+        return self._resolve(key).read_bytes()
+
+    def url(self, key: str) -> str | None:
+        # Local files have no external URL; callers serve the bytes themselves.
+        return None
+
     def path(self, key: str) -> Path:
         return self._resolve(key)
 
 
+class SupabaseImageStorage:
+    """Supabase Storage implementation of :class:`Storage`.
+
+    Bytes live in a Supabase Storage bucket; the database still holds only
+    metadata. Unlike :class:`LocalFilesystemStorage` this survives host restarts
+    and works on ephemeral/serverless filesystems, so it is the backend to use
+    in production (Render, Vercel, ...).
+
+    The admin (service-role) client is used so uploads and deletes are never
+    blocked by Row Level Security. Reads are served to browsers via the bucket's
+    public URL (make the bucket public in the Supabase dashboard).
+    """
+
+    def __init__(self, bucket: str) -> None:
+        self._bucket = bucket
+
+    def _api(self):  # noqa: ANN202 - supabase SDK type is version-dependent
+        # Imported lazily so local/dev and tests never need the supabase SDK or
+        # credentials unless this backend is actually selected.
+        from app.core.supabase import get_supabase_admin_client
+
+        return get_supabase_admin_client().storage.from_(self._bucket)
+
+    @staticmethod
+    def _content_type_for(key: str) -> str:
+        ext = key.rsplit(".", 1)[-1].lower() if "." in key else ""
+        return _EXTENSION_CONTENT_TYPE.get(ext, "application/octet-stream")
+
+    def save(self, key: str, data: bytes) -> None:
+        self._api().upload(
+            path=key,
+            file=data,
+            file_options={
+                "content-type": self._content_type_for(key),
+                "cache-control": "3600",
+                "upsert": "true",
+            },
+        )
+
+    def delete(self, key: str) -> None:
+        # A missing object is not an error for our callers; the metadata row is
+        # already being removed. Swallow failures so delete stays idempotent.
+        try:
+            self._api().remove([key])
+        except Exception:
+            return
+
+    def exists(self, key: str) -> bool:
+        try:
+            self._api().download(key)
+            return True
+        except Exception:
+            return False
+
+    def read(self, key: str) -> bytes:
+        return self._api().download(key)
+
+    def url(self, key: str) -> str | None:
+        result = self._api().get_public_url(key)
+        # supabase-py returns a plain string; stay defensive across versions.
+        if isinstance(result, str):
+            return result or None
+        if isinstance(result, dict):  # pragma: no cover - older SDKs
+            candidate = result.get("publicUrl") or result.get("public_url")
+            return str(candidate) if candidate else None
+        return None
+
+    def path(self, key: str) -> Path:
+        raise BadRequestError("Supabase storage has no local filesystem path.")
+
+
 def get_storage(settings: Settings | None = None) -> Storage:
     settings = settings or get_settings()
+    if settings.photo_storage_is_supabase:
+        return SupabaseImageStorage(settings.SUPABASE_STORAGE_BUCKET)
     return LocalFilesystemStorage(settings.upload_path)

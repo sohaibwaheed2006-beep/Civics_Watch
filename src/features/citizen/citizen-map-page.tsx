@@ -9,10 +9,10 @@ import { ErrorPanel } from '@/components/ui/error-panel';
 export const CitizenMapPage: React.FC = () => {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['public-map-reports'],
-    queryFn: () => reportService.getReports({ limit: 100 }),
+    queryFn: () => reportService.getMapReports({ limit: 500 }),
   });
 
-  const reports = data?.data || [];
+  const reports = data || [];
 
   return (
     <div className="space-y-4">

@@ -10,7 +10,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorPanel } from '@/components/ui/error-panel';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { formatDateTime } from '@/lib/formatters';
-import { UserCheck, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { Avatar } from '@/components/ui/avatar';
+import { getCategoryCoverImage, handleImageFallback } from '@/lib/category-images';
 
 export const AdminAssignmentsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'assigned' | 'in_progress' | 'resolved'>('all');
@@ -79,10 +81,13 @@ export const AdminAssignmentsPage: React.FC = () => {
               className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs space-y-2"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs">
-                    {worker.fullName[0]}
-                  </div>
+                <div className="flex items-center gap-2.5">
+                  <Avatar
+                    alt={worker.fullName}
+                    fallback={worker.fullName}
+                    role="worker"
+                    size="sm"
+                  />
                   <div>
                     <p className="text-xs font-semibold text-slate-900">{worker.fullName}</p>
                     <p className="text-[10px] text-slate-500">{worker.departmentName}</p>
@@ -124,21 +129,50 @@ export const AdminAssignmentsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {reports.map((report) => (
-                  <tr key={report.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4 text-teal-600 shrink-0" />
-                        <div>
-                          <p className="font-semibold text-slate-900">{report.assignedWorkerName}</p>
-                        </div>
-                      </div>
-                    </td>
+                {reports.map((report) => {
+                  const thumbUrl =
+                    report.photos && report.photos.length > 0
+                      ? report.photos[0].url
+                      : getCategoryCoverImage(report.category);
 
-                    <td className="py-3.5 px-4 max-w-xs">
-                      <p className="font-semibold text-slate-900 truncate">{report.title}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{report.address}</p>
-                    </td>
+                  return (
+                    <tr key={report.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar
+                            alt={report.assignedWorkerName || 'Technician'}
+                            fallback={report.assignedWorkerName || 'T'}
+                            role="worker"
+                            size="sm"
+                          />
+                          <div>
+                            <p className="font-semibold text-slate-900">{report.assignedWorkerName || 'Unassigned'}</p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 max-w-xs">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={thumbUrl}
+                            alt=""
+                            onError={(e) => {
+                              const target = e.currentTarget as HTMLImageElement;
+                              const fallback = getCategoryCoverImage(report.category);
+                              if (target.src !== fallback) {
+                                target.src = fallback;
+                              } else {
+                                handleImageFallback(e, report.category);
+                              }
+                            }}
+                            className="h-8 w-10 rounded-md object-cover shrink-0 border border-slate-200"
+                          />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 truncate">{report.title}</p>
+                            <p className="text-[11px] text-slate-500 truncate">{report.address}</p>
+                          </div>
+                        </div>
+                      </td>
 
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <span className="font-medium text-slate-800">
@@ -174,8 +208,9 @@ export const AdminAssignmentsPage: React.FC = () => {
                       </Link>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}
+            </tbody>
             </table>
           </div>
         </div>

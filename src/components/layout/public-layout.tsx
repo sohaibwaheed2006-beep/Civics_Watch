@@ -1,9 +1,36 @@
 import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
-import { Shield } from 'lucide-react';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Shield, LogOut, LayoutDashboard } from 'lucide-react';
 import { ToastContainer } from '@/components/ui/toast';
+import { useAuth } from '@/hooks/use-auth';
+import { Avatar } from '@/components/ui/avatar';
+import { ROLE_DETAILS } from '@/lib/constants';
 
 export const PublicLayout: React.FC = () => {
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const getDashboardRoute = () => {
+    if (!user) return '/login';
+    switch (user.role) {
+      case 'citizen':
+        return '/citizen/dashboard';
+      case 'admin':
+        return '/admin/dashboard';
+      case 'worker':
+        return '/worker/dashboard';
+      default:
+        return '/dashboard';
+    }
+  };
+
+  const handleSignOut = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const roleInfo = user ? ROLE_DETAILS[user.role] : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/50 to-slate-50 flex flex-col justify-between">
       {/* Public Header */}
@@ -19,16 +46,56 @@ export const PublicLayout: React.FC = () => {
             </div>
           </Link>
 
-          <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
-            <Link to="/login" className="hover:text-teal-700 transition-colors">
-              Sign In
-            </Link>
-            <Link
-              to="/register"
-              className="rounded-lg bg-teal-600 px-3.5 py-1.5 text-white hover:bg-teal-700 transition-colors shadow-sm"
-            >
-              Register as Citizen
-            </Link>
+          <div className="flex items-center gap-3 text-xs font-medium text-slate-600">
+            {isAuthenticated && user ? (
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center gap-2 pr-2 border-r border-slate-200">
+                  <Avatar
+                    alt={user.fullName}
+                    fallback={user.fullName}
+                    role={user.role}
+                    size="xs"
+                  />
+                  <div className="text-left">
+                    <span className="font-semibold text-slate-800">{user.fullName}</span>
+                    {roleInfo && (
+                      <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.2 rounded-full border ${roleInfo.badgeClass}`}>
+                        {roleInfo.label}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <Link
+                  to={getDashboardRoute()}
+                  className="rounded-lg bg-teal-600 px-3 py-1.5 text-white hover:bg-teal-700 transition-colors shadow-sm flex items-center gap-1.5 font-semibold"
+                >
+                  <LayoutDashboard className="h-3.5 w-3.5" />
+                  <span>Dashboard</span>
+                </Link>
+
+                <button
+                  onClick={handleSignOut}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors flex items-center gap-1"
+                  title="Sign Out"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link to="/login" className="hover:text-teal-700 transition-colors">
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  className="rounded-lg bg-teal-600 px-3.5 py-1.5 text-white hover:bg-teal-700 transition-colors shadow-sm"
+                >
+                  Register as Citizen
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

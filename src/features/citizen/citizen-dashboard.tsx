@@ -21,6 +21,8 @@ import {
   Bell,
   Map,
 } from 'lucide-react';
+import { CATEGORY_IMAGES, handleImageFallback } from '@/lib/category-images';
+import { ReportCategory } from '@/types/report';
 import { formatRelativeTime } from '@/lib/formatters';
 
 export const CitizenDashboard: React.FC = () => {
@@ -58,8 +60,23 @@ export const CitizenDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="rounded-2xl bg-gradient-to-r from-teal-700 via-teal-800 to-slate-900 p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+      {/* Welcome Banner with Rich Hero Background Image */}
+      <div className="rounded-2xl bg-gradient-to-r from-teal-900 via-teal-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-teal-800/40">
+        <img
+          src="https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80"
+          alt="Neighborhood Cityscape"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!img.src.includes('/images/hero/citizen-hero.jpg')) {
+              img.src = '/images/hero/citizen-hero.jpg';
+            } else {
+              img.style.display = 'none';
+            }
+          }}
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-25 mix-blend-screen pointer-events-none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-teal-950/80 via-teal-900/60 to-transparent pointer-events-none" />
+
         <div className="relative z-10 max-w-2xl space-y-3">
           <span className="inline-block rounded-full bg-teal-500/20 px-3 py-1 text-xs font-semibold text-teal-200 border border-teal-400/30">
             Citizen Community Portal
@@ -92,6 +109,49 @@ export const CitizenDashboard: React.FC = () => {
               </Button>
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* Explore & Report by Category with Visual Tiles */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+            Report by Category
+          </h2>
+          <span className="text-xs text-slate-400">Select a category to file quickly</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+          {(
+            [
+              ['road_damage', 'Roads & Potholes'],
+              ['streetlight', 'Lighting & Power'],
+              ['garbage_waste', 'Waste & Sanitation'],
+              ['water_leak', 'Water Main Leaks'],
+              ['drainage', 'Blocked Drainage'],
+              ['public_property', 'Parks & Property'],
+            ] as const
+          ).map(([catKey, label]) => {
+            const catImage = CATEGORY_IMAGES[catKey as ReportCategory];
+            return (
+              <Link
+                key={catKey}
+                to={`/citizen/reports/new?category=${catKey}`}
+                className="group relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200/80 shadow-xs hover:shadow-md hover:border-teal-400 transition-all"
+              >
+                <img
+                  src={catImage.url}
+                  alt={label}
+                  onError={(e) => handleImageFallback(e, catKey)}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-transparent flex items-end p-2.5">
+                  <span className="text-xs font-semibold text-white leading-tight drop-shadow-xs group-hover:text-teal-200 transition-colors">
+                    {label}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
 

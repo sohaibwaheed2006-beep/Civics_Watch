@@ -8,18 +8,26 @@ from __future__ import annotations
 
 from typing import Sequence
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.enums import UserRole
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
 from app.core.logging import get_logger
+from app.core.security import hash_password
 from app.models.user import User
 from app.repositories import department_repository, user_repository
-from app.schemas.user import UserRoleUpdate
+from app.schemas.user import AdminUserUpdate, UserRoleUpdate, WorkerCreate
 
 logger = get_logger(__name__)
 
-__all__ = ["list_users", "get_user", "update_user_role"]
+__all__ = [
+    "list_users",
+    "get_user",
+    "update_user_role",
+    "create_worker",
+    "admin_update_user",
+]
 
 
 def list_users(
@@ -155,4 +163,137 @@ def update_user_role(
         new_role.value,
         department_id,
     )
+    return target
+
+
+def _require_active_department(db: Session, department_id: int) -> None:
+    """Raise unless the department exists and is active."""
+    department = department_repository.get_by_id(db, department_id)
+    if department is None:
+        raise NotFoundError(f"Department {department_id} not found.")
+    if not department.is_active:
+        raise ConflictError("Cannot assign a worker to an inactive department.")
+
+
+def create_worker(db: Session, *, actor: User, payload: WorkerCreate) -> User:
+    """Create a field-worker account attached to a department. Admin only.
+
+    Raises
+    ------
+    ConflictError
+        The email is already registered (409).
+    NotFoundError
+        The target department does not exist (404).
+    ConflictError
+        The target department is inactive (409).
+    """
+    if user_repository.email_exists(db, payload.email):
+        raise ConflictError("An account with this email already exists.")
+
+    _require_active_department(db, payload.department_id)
+
+    try:
+        worker = user_repository.create(
+            db,
+            full_name=payload.full_name,
+            email=payload.email,
+            password_hash=hash_password(payload.password),
+            role=UserRole.WORKER,
+            phone=payload.phone,
+            is_active=True,
+            is_verified=True,
+            department_id=payload.department_id,
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ConflictError("An account with this email already exists.") from None
+
+    logger.info(
+        "Admin id=%s created worker id=%s department_id=%s",
+        actor.id,
+        worker.id,
+        payload.department_id,
+    )
+    return worker
+
+
+def admin_update_user(
+    db: Session, *, actor: User, user_id: int, payload: AdminUserUpdate
+) -> User:
+    """Edit a user's profile, status and (optionally) role as an administrator.
+
+    Applies the same guards as ``update_user_role`` and additionally protects
+    the last active administrator from being deactivated, and stops an admin
+    from deactivating or demoting their own account (self-lockout).
+
+    Raises
+    ------
+    NotFoundError
+        The target user, or a requested department, does not exist (404).
+    PermissionDeniedError
+        The actor targets their own role/active status (403).
+    ConflictError
+        The change would remove the last active administrator, or assign an
+        inactive department (409).
+    """
+    target = user_repository.get_by_id(db, user_id)
+    if target is None:
+        raise NotFoundError("User not found.")
+
+    fields = payload.model_fields_set
+    is_self = target.id == actor.id
+
+    # --- Profile fields -----------------------------------------------------
+    if "full_name" in fields and payload.full_name is not None:
+        target.full_name = payload.full_name.strip()
+    if "phone" in fields:
+        target.phone = payload.phone
+
+    # --- Role change (reuses the role-update rules) ------------------------
+    new_role = payload.role if "role" in fields and payload.role is not None else target.role
+    role_changed = new_role != target.role
+
+    if role_changed and is_self:
+        raise PermissionDeniedError(
+            "You cannot change your own role. Ask another administrator."
+        )
+    if role_changed and target.role == UserRole.ADMIN:
+        if user_repository.count_active_admins(db, exclude_user_id=target.id) == 0:
+            raise ConflictError(
+                "This is the last active administrator; promote another "
+                "administrator before changing this role."
+            )
+
+    # Resolve department: explicit value wins, else keep current.
+    department_id = target.department_id
+    if "department_id" in fields:
+        department_id = payload.department_id
+
+    if new_role == UserRole.WORKER:
+        if department_id is not None:
+            _require_active_department(db, department_id)
+    else:
+        department_id = None
+
+    target.role = new_role
+    target.department_id = department_id
+
+    # --- Active status ------------------------------------------------------
+    if "is_active" in fields and payload.is_active is not None:
+        if payload.is_active is False:
+            if is_self:
+                raise PermissionDeniedError(
+                    "You cannot deactivate your own account."
+                )
+            if target.role == UserRole.ADMIN and (
+                user_repository.count_active_admins(db, exclude_user_id=target.id) == 0
+            ):
+                raise ConflictError(
+                    "Cannot deactivate the last active administrator."
+                )
+        target.is_active = payload.is_active
+
+    db.commit()
+    logger.info("Admin id=%s updated user id=%s", actor.id, target.id)
     return target

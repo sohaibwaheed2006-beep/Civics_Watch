@@ -4,6 +4,7 @@
 !.env.example
 *.pem
 *.key
+cloudflared.exe
 
 # --- Virtual environments (Python) -----------------------------------------
 .venv/
@@ -52,6 +53,10 @@ uploads/
 !uploads/.gitkeep
 logs/
 *.log
+# Local dev SQLite files - production uses Supabase Postgres.
+*.db
+*.sqlite
+*.sqlite3
 
 # --- Editors / OS ----------------------------------------------------------
 .idea/

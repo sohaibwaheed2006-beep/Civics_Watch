@@ -5,8 +5,29 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { CardSkeleton } from '@/components/ui/skeleton';
 import { ErrorPanel } from '@/components/ui/error-panel';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
 import { Clock, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+
+const STATUS_COLORS: Record<string, string> = {
+  submitted: '#94a3b8',
+  under_review: '#f59e0b',
+  assigned: '#3b82f6',
+  in_progress: '#0d9488',
+  resolved: '#10b981',
+  rejected: '#f43f5e',
+};
 
 export const AdminAnalyticsPage: React.FC = () => {
   const { data: analytics, isLoading, isError, refetch } = useQuery({
@@ -153,7 +174,57 @@ export const AdminAnalyticsPage: React.FC = () => {
           </Card>
 
           {/* Visualizations row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Status Breakdown (Donut) */}
+            <Card className="border-slate-200/90 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-sm font-semibold">Reports by Status</CardTitle>
+              </CardHeader>
+              <CardContent className="h-72 flex flex-col items-center justify-center">
+                <ResponsiveContainer width="100%" height="80%">
+                  <PieChart>
+                    <Pie
+                      data={analytics.byStatus}
+                      dataKey="count"
+                      nameKey="label"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={3}
+                    >
+                      {analytics.byStatus.map((entry) => (
+                        <Cell
+                          key={entry.status}
+                          fill={STATUS_COLORS[entry.status] || '#cbd5e1'}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '0.75rem',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-slate-600 mt-1">
+                  {analytics.byStatus.slice(0, 4).map((item) => (
+                    <div key={item.status} className="flex items-center gap-1.5">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: STATUS_COLORS[item.status] }}
+                      />
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-slate-200/90 shadow-sm">
               <CardHeader>
                 <CardTitle className="text-sm font-semibold">Volume by Problem Category</CardTitle>

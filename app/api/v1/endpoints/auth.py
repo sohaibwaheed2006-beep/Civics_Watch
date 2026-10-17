@@ -25,20 +25,30 @@ in the service.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, BackgroundTasks, status
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, SettingsDep
 from app.schemas.auth import (
+    AuthResponse,
     ChangePasswordRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     RegisterRequest,
-    TokenResponse,
+    ResetPasswordRequest,
 )
 from app.schemas.common import ErrorResponse, MessageResponse
 from app.schemas.user import UserProfileUpdate, UserRead
-from app.services import auth_service
+from app.services import auth_service, email_service
 
 router = APIRouter()
+
+
+def _link(base_url: str, path: str, token: str) -> str:
+    """Build a frontend link of the form ``{base_url}{path}?token=...``.
+
+    JWTs use only URL-safe characters, so the token needs no percent-encoding.
+    """
+    return f"{base_url}{path}?token={token}"
 
 
 @router.post(
@@ -58,38 +68,44 @@ router = APIRouter()
         "a citizen. Admin and worker accounts are created by an administrator. "
         "Sending `role`, `is_active`, `is_verified` or `department_id` in the "
         "body is rejected with a 422.\n\n"
-        "The password is never returned."
+        "No email confirmation is required: the account can sign in immediately "
+        "with the chosen credentials. The password is never returned."
     ),
 )
-def register(
-    payload: RegisterRequest, db: DbSession
-) -> UserRead:
+def register(payload: RegisterRequest, db: DbSession) -> UserRead:
     user = auth_service.register_citizen(db, payload)
     return UserRead.model_validate(user)
 
 
 @router.post(
     "/login",
-    response_model=TokenResponse,
+    response_model=AuthResponse,
     status_code=status.HTTP_200_OK,
-    summary="Exchange credentials for an access token",
+    summary="Exchange credentials for an access token and user profile",
     responses={
         status.HTTP_401_UNAUTHORIZED: {
             "model": ErrorResponse,
             "description": "Incorrect email or password, or the account is inactive.",
-        }
+        },
     },
     description=(
-        "Returns a JWT access token on success.\n\n"
-        "Send it on subsequent requests as `Authorization: Bearer <access_token>`.\n\n"
+        "Returns a JWT access token *and* the authenticated user's profile.\n\n"
+        "Send the token on subsequent requests as "
+        "`Authorization: Bearer <access_token>`.\n\n"
         "An unknown email, a wrong password and a deactivated account all "
         "produce the same 401 message, so this endpoint cannot be used to "
         "discover which addresses are registered."
     ),
 )
-def login(payload: LoginRequest, db: DbSession) -> TokenResponse:
+def login(payload: LoginRequest, db: DbSession) -> AuthResponse:
     user = auth_service.authenticate(db, payload.email, payload.password)
-    return auth_service.issue_access_token(user)
+    token = auth_service.issue_access_token(user)
+    return AuthResponse(
+        access_token=token.access_token,
+        token_type=token.token_type,
+        expires_in=token.expires_in,
+        user=UserRead.model_validate(user),
+    )
 
 
 @router.get(
@@ -183,6 +199,70 @@ def change_password(
 ) -> MessageResponse:
     auth_service.change_password(db, current_user.id, payload)
     return MessageResponse(message="Password changed successfully.")
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Request a password-reset link by email",
+    description=(
+        "Sends a password-reset link to the address if - and only if - it "
+        "belongs to an active account. The response is the **same** whether or "
+        "not the email is registered, so this endpoint cannot be used to "
+        "discover which addresses have accounts.\n\n"
+        "The email is dispatched in the background. If SMTP is not configured "
+        "the endpoint still returns 200; it simply sends nothing."
+    ),
+)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: DbSession,
+    background: BackgroundTasks,
+    settings: SettingsDep,
+) -> MessageResponse:
+    result = auth_service.request_password_reset(db, payload.email)
+    if result is not None:
+        user, token = result
+        background.add_task(
+            email_service.send_password_reset_email,
+            to_email=user.email,
+            full_name=user.full_name,
+            reset_url=_link(settings.FRONTEND_BASE_URL, "/reset-password", token),
+        )
+    return MessageResponse(
+        message=(
+            "If an account exists for that email, a password-reset link has "
+            "been sent."
+        )
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Set a new password from a reset link",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "The reset link is invalid, expired or already used.",
+        }
+    },
+    description=(
+        "Completes a password reset using the token from the emailed link.\n\n"
+        "A link is single-use: it is tied to the password it was issued "
+        "against, so once the password changes the link stops working. Expired "
+        "or tampered links return 400."
+    ),
+)
+def reset_password(
+    payload: ResetPasswordRequest, db: DbSession
+) -> MessageResponse:
+    auth_service.reset_password(db, payload.token, payload.new_password)
+    return MessageResponse(
+        message="Your password has been reset. You can now sign in."
+    )
 
 
 @router.post(

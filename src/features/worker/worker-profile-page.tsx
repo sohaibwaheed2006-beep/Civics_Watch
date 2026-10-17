@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { formatDate } from '@/lib/formatters';
-import { User, Lock, LogOut, Building } from 'lucide-react';
+import { User, Lock, LogOut, Building, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Avatar } from '@/components/ui/avatar';
 
 export const WorkerProfilePage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -78,12 +79,35 @@ export const WorkerProfilePage: React.FC = () => {
       <Card className="border-slate-200/90 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <User className="h-4 w-4 text-teal-600" />
-            <span>Technician Identification</span>
+            <User className="h-4 w-4 text-amber-600" />
+            <span>Technician Identification & Credentials</span>
           </CardTitle>
-          <CardDescription>Verified municipal field worker information.</CardDescription>
+          <CardDescription>Verified municipal field operations personnel.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Technician Photo Header */}
+          <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200/80 mb-2">
+            <Avatar
+              alt={user?.fullName}
+              fallback={user?.fullName}
+              role="worker"
+              size="xl"
+              showBorder
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">{user?.fullName}</h2>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                  <ShieldCheck className="h-3 w-3 text-amber-600" />
+                  Active Field Crew
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">{user?.email}</p>
+              <p className="text-xs font-semibold text-teal-800 mt-1">
+                {user?.departmentName || 'Public Infrastructure Department'}
+              </p>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
               <p className="text-slate-400 font-medium">Full Name</p>

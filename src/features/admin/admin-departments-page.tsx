@@ -13,9 +13,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Modal, ConfirmationDialog } from '@/components/ui/modal';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { TableSkeleton } from '@/components/ui/skeleton';
-import { ErrorPanel } from '@/components/ui/error-panel';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Building, Plus, Edit2, ShieldAlert, CheckCircle2, XCircle, Users, Clock } from 'lucide-react';
+import { ErrorPanel } from '@/components/ui/error-panel';
+import { Plus, Edit2, ShieldAlert, CheckCircle2, XCircle, Users, Clock, LayoutGrid, List } from 'lucide-react';
+import { getDepartmentCoverImage } from '@/lib/category-images';
+import { Card } from '@/components/ui/card';
 
 export const AdminDepartmentsPage: React.FC = () => {
   const { toast } = useToast();
@@ -25,6 +27,7 @@ export const AdminDepartmentsPage: React.FC = () => {
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [deactivatingDept, setDeactivatingDept] = useState<Department | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   // Load departments
   const { data: departments = [], isLoading, isError, refetch } = useQuery({
@@ -128,18 +131,46 @@ export const AdminDepartmentsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          onClick={() => {
-            setFormError(null);
-            setIsCreateOpen(true);
-          }}
-          leftIcon={<Plus className="h-4 w-4" />}
-        >
-          Add Department
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-white shadow-xs text-slate-900 font-semibold'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Grid Cards View"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-lg text-xs transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-white shadow-xs text-slate-900 font-semibold'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Table View"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+
+          <Button
+            onClick={() => {
+              setFormError(null);
+              setIsCreateOpen(true);
+            }}
+            leftIcon={<Plus className="h-4 w-4" />}
+          >
+            Add Department
+          </Button>
+        </div>
       </div>
 
-      {/* Departments Table */}
+      {/* Departments Content */}
       {isLoading ? (
         <TableSkeleton rows={5} />
       ) : isError ? (
@@ -151,6 +182,115 @@ export const AdminDepartmentsPage: React.FC = () => {
           actionText="Create Department"
           onAction={() => setIsCreateOpen(true)}
         />
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {departments.map((dept) => {
+            const coverUrl = dept.imageUrl || getDepartmentCoverImage(dept.id, dept.name);
+
+            return (
+              <Card
+                key={dept.id}
+                hoverEffect
+                className="group flex flex-col justify-between overflow-hidden border-slate-200/90 hover:border-teal-400"
+              >
+                <div>
+                  {/* Department Banner Photo */}
+                  <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-4 bg-slate-900/10 overflow-hidden border-b border-slate-100">
+                    <img
+                      src={coverUrl}
+                      alt={dept.name}
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        const fallback = getDepartmentCoverImage(dept.id, dept.name);
+                        if (target.src !== fallback) {
+                          target.src = fallback;
+                        } else {
+                          target.style.display = 'none';
+                        }
+                      }}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20" />
+
+                    <div className="absolute top-3 left-3">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold backdrop-blur-xs border shadow-xs ${
+                          dept.isActive
+                            ? 'bg-emerald-600/90 text-white border-emerald-400/40'
+                            : 'bg-slate-800/90 text-slate-200 border-slate-700'
+                        }`}
+                      >
+                        {dept.isActive ? (
+                          <>
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Active Department</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-3 w-3 text-slate-400" />
+                            <span>Inactive</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="absolute bottom-3 left-3 right-3 text-white">
+                      <h3 className="font-bold text-base leading-snug drop-shadow-sm">{dept.name}</h3>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                    {dept.description}
+                  </p>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <p className="text-[10px] text-slate-400 font-medium">Standard SLA</p>
+                      <p className="font-semibold text-slate-800 mt-0.5 flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-teal-600" />
+                        <span>{dept.defaultSlaHours} hrs</span>
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <p className="text-[10px] text-slate-400 font-medium">Active Staff</p>
+                      <p className="font-semibold text-slate-800 mt-0.5 flex items-center gap-1">
+                        <Users className="h-3 w-3 text-teal-600" />
+                        <span>{dept.workerCount || 0} technicians</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onStartEdit(dept)}
+                    className="text-xs text-slate-600 hover:text-slate-900"
+                  >
+                    <Edit2 className="h-3.5 w-3.5 mr-1" />
+                    Edit
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeactivatingDept(dept)}
+                    className={`text-xs ${
+                      dept.isActive
+                        ? 'text-rose-600 hover:bg-rose-50'
+                        : 'text-emerald-600 hover:bg-emerald-50'
+                    }`}
+                  >
+                    {dept.isActive ? 'Deactivate' : 'Activate'}
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
@@ -166,81 +306,98 @@ export const AdminDepartmentsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {departments.map((dept) => (
-                  <tr key={dept.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <Building className="h-4 w-4 text-teal-600" />
-                        <span>{dept.name}</span>
-                      </div>
-                    </td>
+                {departments.map((dept) => {
+                  const coverUrl = dept.imageUrl || getDepartmentCoverImage(dept.id, dept.name);
 
-                    <td className="py-3.5 px-4 max-w-sm text-slate-600 truncate">
-                      {dept.description}
-                    </td>
+                  return (
+                    <tr key={dept.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={coverUrl}
+                            alt=""
+                            onError={(e) => {
+                              const target = e.currentTarget as HTMLImageElement;
+                              const fallback = getDepartmentCoverImage(dept.id, dept.name);
+                              if (target.src !== fallback) {
+                                target.src = fallback;
+                              } else {
+                                target.style.display = 'none';
+                              }
+                            }}
+                            className="h-9 w-12 rounded-lg object-cover shrink-0 border border-slate-200"
+                          />
+                          <span>{dept.name}</span>
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 font-medium text-slate-800">
-                        <Clock className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{dept.defaultSlaHours} hours</span>
-                      </div>
-                    </td>
+                      <td className="py-3.5 px-4 max-w-sm text-slate-600 truncate">
+                        {dept.description}
+                      </td>
 
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 font-medium text-slate-700">
-                        <Users className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{dept.workerCount || 0} technicians</span>
-                      </div>
-                    </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                          <Clock className="h-3.5 w-3.5 text-slate-400" />
+                          <span>{dept.defaultSlaHours} hours</span>
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                          dept.isActive
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}
-                      >
-                        {dept.isActive ? (
-                          <>
-                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                            <span>Active</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-3 w-3 text-slate-400" />
-                            <span>Inactive</span>
-                          </>
-                        )}
-                      </span>
-                    </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                          <Users className="h-3.5 w-3.5 text-slate-400" />
+                          <span>{dept.workerCount || 0} technicians</span>
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onStartEdit(dept)}
-                        className="text-xs text-slate-600 hover:text-slate-900"
-                      >
-                        <Edit2 className="h-3.5 w-3.5 mr-1" />
-                        Edit
-                      </Button>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                            dept.isActive
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}
+                        >
+                          {dept.isActive ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              <span>Active</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-3 w-3 text-slate-400" />
+                              <span>Inactive</span>
+                            </>
+                          )}
+                        </span>
+                      </td>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeactivatingDept(dept)}
-                        className={`text-xs ${
-                          dept.isActive
-                            ? 'text-rose-600 hover:bg-rose-50'
-                            : 'text-emerald-600 hover:bg-emerald-50'
-                        }`}
-                      >
-                        {dept.isActive ? 'Deactivate' : 'Activate'}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onStartEdit(dept)}
+                          className="text-xs text-slate-600 hover:text-slate-900"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 mr-1" />
+                          Edit
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeactivatingDept(dept)}
+                          className={`text-xs ${
+                            dept.isActive
+                              ? 'text-rose-600 hover:bg-rose-50'
+                              : 'text-emerald-600 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {dept.isActive ? 'Deactivate' : 'Activate'}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

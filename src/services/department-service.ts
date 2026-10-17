@@ -6,11 +6,21 @@ import {
 } from '@/types/department';
 import { MockBackendAdapter } from '@/lib/mock-adapter';
 
+// /departments returns a paginated envelope normalised to { data: [...] };
+// mock returns a raw array. Accept both and always return a plain array.
+function toArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  const data = (payload as { data?: unknown })?.data;
+  return Array.isArray(data) ? (data as T[]) : [];
+}
+
 export const departmentService = {
   async getDepartments(): Promise<Department[]> {
     try {
-      const response = await apiClient.get<Department[]>('/departments');
-      return response.data;
+      const response = await apiClient.get('/departments', {
+        params: { page: 1, page_size: 100 },
+      });
+      return toArray<Department>(response.data);
     } catch (error) {
       if (isMockFallbackEnabled()) {
         return await MockBackendAdapter.getDepartmentsList();

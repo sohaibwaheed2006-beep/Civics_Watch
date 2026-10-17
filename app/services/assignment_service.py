@@ -7,6 +7,7 @@ the audit history is complete. Status is advanced from ``submitted``/
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlalchemy import and_, select, update
@@ -14,11 +15,11 @@ from sqlalchemy.orm import Session
 
 from app.core.enums import (
     NotificationType,
+    ReportPriority,
     ReportStatus,
     UserRole,
 )
 from app.core.exceptions import (
-    ConflictError,
     NotFoundError,
     UnprocessableEntityError,
 )
@@ -56,8 +57,14 @@ def assign_worker(
     actor: User,
     worker_id: int,
     notes: str | None = None,
+    priority: ReportPriority | None = None,
+    deadline_at: datetime | None = None,
 ) -> Assignment:
     """Create a new active assignment and advance the report's state.
+
+    ``priority`` and ``deadline_at`` are optional overrides set by the admin in
+    the dispatch modal; when provided they are written onto the report as part
+    of the same transaction.
 
     Raises
     ------
@@ -66,8 +73,11 @@ def assign_worker(
     UnprocessableEntityError
         Target account is not an active worker, or the department mismatches
         and the actor is not an admin.
-    ConflictError
-        Report is already assigned to this worker.
+
+    Re-dispatching a report to the worker it is already assigned to is allowed
+    and treated idempotently: the active assignment is refreshed (the old row
+    is closed and a new one opened for the audit trail) and any priority or
+    deadline override is re-applied, so the "Re-dispatch" action always works.
     """
     worker: User | None = db.get(User, worker_id)
     if worker is None or not worker.is_active:
@@ -84,12 +94,9 @@ def assign_worker(
                 "Worker's department does not match the report's department."
             )
 
-    if (
-        report.assigned_worker_id == worker.id
-        and report.status == ReportStatus.ASSIGNED
-    ):
-        raise ConflictError("Report is already assigned to this worker.")
-
+    # Re-dispatching to the same worker is intentionally NOT an error: the
+    # admin may be refreshing the deadline/priority or re-sending the dispatch
+    # notification. The active assignment is simply refreshed below.
     _close_active_assignments(db, report.id)
 
     assignment = Assignment(
@@ -106,6 +113,17 @@ def assign_worker(
     report.assigned_worker_id = worker.id
     if worker.department_id is not None:
         report.department_id = worker.department_id
+
+    # Optional dispatch-time overrides from the admin modal.
+    if priority is not None:
+        report.priority = priority
+    if deadline_at is not None:
+        # The datetime-local picker sends a timezone-less value; treat it as
+        # UTC so the stored deadline is always tz-aware and never trips the
+        # naive/aware comparison in the overdue checks.
+        if deadline_at.tzinfo is None:
+            deadline_at = deadline_at.replace(tzinfo=timezone.utc)
+        report.deadline_at = deadline_at
 
     if report.status != ReportStatus.ASSIGNED:
         report.status = ReportStatus.ASSIGNED

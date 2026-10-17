@@ -53,18 +53,17 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
 
     # --- Database ---------------------------------------------------------
-    #: SQLAlchemy URL for MySQL 8, e.g.
-    #: ``mysql+pymysql://user:password@127.0.0.1:3306/neighborhood_issues``
-    #: The default is a non-functional placeholder so the application still
-    #: imports and serves ``/health`` before MySQL is configured. Connections
-    #: are opened lazily, so a wrong URL only fails when a request needs data.
+    #: SQLAlchemy URL for the Supabase Postgres instance, e.g.
+    #: ``postgresql+psycopg2://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres``
+    #: SQLite is accepted for local-only development. Connections are opened
+    #: lazily, so a wrong URL only fails when a request needs data.
     DATABASE_URL: str = (
-        "mysql+pymysql://CHANGE_ME:CHANGE_ME@127.0.0.1:3306/neighborhood_issues"
+        "postgresql+psycopg2://CHANGE_ME:CHANGE_ME@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
     )
 
-    #: Connection pool sizing. ``pool_recycle`` sits below MySQL's default
-    #: ``wait_timeout`` (28800s) so the pool never hands out a connection the
-    #: server has already dropped.
+    #: Connection pool sizing. ``pool_recycle`` keeps idle connections well
+    #: below any upstream idle timeout, so the pool never hands out a
+    #: connection the server has already dropped.
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE_SECONDS: int = 1800
@@ -92,6 +91,18 @@ class Settings(BaseSettings):
     SUPABASE_PUBLISHABLE_KEY: str = ""
     SUPABASE_SECRET_KEY: str = ""
 
+    # --- Photo storage ----------------------------------------------------
+    #: Where report photos are stored. "local" writes to UPLOAD_DIR, which is
+    #: fine for a single long-running server with a persistent disk. "supabase"
+    #: uploads to a Supabase Storage bucket and is REQUIRED on hosts with an
+    #: ephemeral filesystem (Render's free tier, Vercel serverless), where the
+    #: local disk is wiped on every restart and uploads would silently vanish.
+    PHOTO_STORAGE_BACKEND: Literal["local", "supabase"] = "local"
+
+    #: Supabase Storage bucket for report photos. Create it as a *public* bucket
+    #: in the Supabase dashboard (Storage -> New bucket, "Public bucket" on).
+    SUPABASE_STORAGE_BUCKET: str = "report-photos"
+
     # --- Report domain ----------------------------------------------------
     #: Maximum photos per report. Keeps a single actor from flooding storage.
     MAX_PHOTOS_PER_REPORT: int = 8
@@ -117,8 +128,62 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-flash-lite-latest"
 
+    #: Resolution-note quality check: match scores below this flag the closure
+    #: for admin review. The worker's photo must look like the described fix.
+    RESOLUTION_MATCH_MIN_SCORE: float = 0.55
+
+    #: Incident clustering: if a new report scores at or above this against an
+    #: existing cluster member, it inherits the same cluster id.
+    CLUSTER_LINK_MIN_SCORE: float = 0.60
+
+    #: Spam filter thresholds (0..1). At or above the reject score a report is
+    #: auto-rejected and never enters the work queue. Between the flag score
+    #: and the reject score it is kept but flagged for human review.
+    SPAM_AUTO_REJECT_SCORE: float = 0.85
+    SPAM_FLAG_SCORE: float = 0.50
+
+    #: Worker bonus weighting. The three must sum to 1.0; validated below.
+    BONUS_WEIGHT_RATING: float = 0.5
+    BONUS_WEIGHT_SPEED: float = 0.3
+    BONUS_WEIGHT_VOLUME: float = 0.2
+
     # --- Google Maps -----------------------------------------------------
     GOOGLE_MAPS_API_KEY: str = ""
+
+    # --- Email / SMTP -----------------------------------------------------
+    #: Master switch. Even with SMTP configured, set this False to silence all
+    #: outbound mail (useful in tests and local demos).
+    EMAIL_ENABLED: bool = True
+
+    #: SMTP relay. Leave SMTP_HOST empty to disable email entirely; the auth
+    #: flows then degrade gracefully (the reset endpoint still returns its
+    #: generic 200, it just never dispatches a message).
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+
+    #: STARTTLS on a plaintext connection (port 587, the common default) vs an
+    #: implicit TLS connection (SMTP_USE_SSL, port 465). They are mutually
+    #: exclusive; enabling both is rejected below.
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    SMTP_TIMEOUT_SECONDS: int = 15
+
+    #: Envelope sender. Falls back to SMTP_USERNAME when left blank.
+    SMTP_FROM_EMAIL: str = ""
+    #: Human-readable From name; falls back to APP_NAME when blank.
+    SMTP_FROM_NAME: str = ""
+
+    #: Base URL of the frontend, used to build links inside emails
+    #: (``{FRONTEND_BASE_URL}/reset-password?token=...``). No trailing slash.
+    FRONTEND_BASE_URL: str = "http://localhost:5173"
+
+    #: Lifetime of a password-reset link. Short on purpose: a reset link is a
+    #: bearer credential for the account.
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
+    #: Lifetime of an email-verification link. Longer, since it is low-risk.
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 48
 
     # ------------------------------------------------------------------
     # Validators
@@ -161,18 +226,19 @@ class Settings(BaseSettings):
         value = value.strip()
         if not value:
             raise ValueError("DATABASE_URL must not be empty")
-        # Guard the common mistakes: a bare hostname, or a Postgres URL copied
-        # from another project. SQLite is allowed only for isolated tests.
+        # Guard the common mistake of a bare hostname with no scheme. SQLite
+        # is allowed for local-only development; the shipping target is
+        # Supabase (postgresql).
         if "://" not in value:
             raise ValueError(
                 "DATABASE_URL must be a SQLAlchemy URL, e.g. "
-                "mysql+pymysql://user:password@host:3306/dbname"
+                "postgresql+psycopg2://user:password@host:6543/postgres"
             )
         scheme = value.split("://", 1)[0].lower()
-        if not scheme.startswith(("mysql", "sqlite")):
+        if not scheme.startswith(("postgres", "sqlite")):
             raise ValueError(
                 f"unsupported database dialect {scheme!r}; this project targets "
-                "MySQL 8 (mysql+pymysql://...)"
+                "Supabase Postgres (postgresql+psycopg2://...)"
             )
         return value
 
@@ -189,6 +255,44 @@ class Settings(BaseSettings):
         if value < 0:
             raise ValueError("value must not be negative")
         return value
+
+    @field_validator("SMTP_PORT", "SMTP_TIMEOUT_SECONDS")
+    @classmethod
+    def _validate_smtp_positive(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("value must be positive")
+        return value
+
+    @field_validator("FRONTEND_BASE_URL")
+    @classmethod
+    def _validate_frontend_base_url(cls, value: str) -> str:
+        value = value.strip().rstrip("/")
+        if value and "://" not in value:
+            raise ValueError("FRONTEND_BASE_URL must include a scheme, e.g. http://")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_smtp_tls(self) -> "Settings":
+        if self.SMTP_USE_TLS and self.SMTP_USE_SSL:
+            raise ValueError(
+                "SMTP_USE_TLS (STARTTLS) and SMTP_USE_SSL (implicit TLS) are "
+                "mutually exclusive; enable only one"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_bonus_weights(self) -> "Settings":
+        total = (
+            self.BONUS_WEIGHT_RATING
+            + self.BONUS_WEIGHT_SPEED
+            + self.BONUS_WEIGHT_VOLUME
+        )
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(
+                "BONUS_WEIGHT_RATING + BONUS_WEIGHT_SPEED + BONUS_WEIGHT_VOLUME "
+                f"must sum to 1.0 (got {total:.6f})"
+            )
+        return self
 
     @model_validator(mode="after")
     def _guard_production_secret(self) -> "Settings":
@@ -250,6 +354,11 @@ class Settings(BaseSettings):
         return self.DATABASE_URL.lower().startswith("sqlite")
 
     @property
+    def is_postgres(self) -> bool:
+        """True when pointed at Postgres / Supabase."""
+        return self.DATABASE_URL.lower().startswith("postgres")
+
+    @property
     def database_url_safe(self) -> str:
         """``DATABASE_URL`` with the password masked, for logs and diagnostics.
 
@@ -281,6 +390,11 @@ class Settings(BaseSettings):
         )
 
     @property
+    def photo_storage_is_supabase(self) -> bool:
+        """True when report photos should be stored in Supabase Storage."""
+        return self.PHOTO_STORAGE_BACKEND == "supabase"
+
+    @property
     def gemini_configured(self) -> bool:
         """True when a Gemini API key is set."""
         return bool(self.GEMINI_API_KEY.strip())
@@ -289,6 +403,26 @@ class Settings(BaseSettings):
     def google_maps_configured(self) -> bool:
         """True when a Google Maps API key is set."""
         return bool(self.GOOGLE_MAPS_API_KEY.strip())
+
+    @property
+    def smtp_configured(self) -> bool:
+        """True when enough SMTP settings are present to attempt delivery."""
+        return bool(self.SMTP_HOST.strip() and self.smtp_from_email)
+
+    @property
+    def emails_enabled(self) -> bool:
+        """True when outbound email is both switched on and configured."""
+        return self.EMAIL_ENABLED and self.smtp_configured
+
+    @property
+    def smtp_from_email(self) -> str:
+        """Envelope sender, defaulting to the SMTP username when unset."""
+        return (self.SMTP_FROM_EMAIL or self.SMTP_USERNAME).strip()
+
+    @property
+    def smtp_from_name(self) -> str:
+        """Display name for the From header, defaulting to the app name."""
+        return self.SMTP_FROM_NAME.strip() or self.APP_NAME
 
     @property
     def docs_enabled(self) -> bool:

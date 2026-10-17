@@ -26,13 +26,16 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    ai,
     analytics,
     assignments,
     auth,
+    bonus,
     departments,
     notifications,
     report_photos,
     reports,
+    reviews,
     users,
     votes,
 )
@@ -68,5 +71,17 @@ api_router.include_router(
 api_router.include_router(
     analytics.router, prefix="/analytics", tags=["Analytics"]
 )
+
+# ---------------------------------------------------------------------------
+# AI automation (vision auto-fill, resolution check, auto-routing, bonuses)
+# ---------------------------------------------------------------------------
+# ai.router owns /ai/vision/* and /ai/reports/{id}/{cluster,auto-route}.
+api_router.include_router(ai.router, prefix="/ai", tags=["AI Automation"])
+# reviews.router hangs off /reports/{id}/review so citizens rate the worker
+# that closed their report.
+api_router.include_router(reviews.router, prefix="/reports", tags=["Reviews"])
+# bonus.router exposes the worker-of-the-month leaderboard and the admin
+# award action.
+api_router.include_router(bonus.router, prefix="/bonus", tags=["Worker Bonus"])
 
 __all__ = ["api_router"]

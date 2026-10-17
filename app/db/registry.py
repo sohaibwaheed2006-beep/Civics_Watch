@@ -19,9 +19,11 @@ from app.models.department import Department  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
 from app.models.report import Report  # noqa: F401
 from app.models.report_photo import ReportPhoto  # noqa: F401
+from app.models.review import Review  # noqa: F401
 from app.models.status_history import StatusHistory  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.vote import Vote  # noqa: F401
+from app.models.worker_bonus import WorkerBonus  # noqa: F401
 
 __all__ = [
     "Base",
@@ -30,9 +32,11 @@ __all__ = [
     "Notification",
     "Report",
     "ReportPhoto",
+    "Review",
     "StatusHistory",
     "User",
     "Vote",
+    "WorkerBonus",
     "target_metadata",
 ]
 

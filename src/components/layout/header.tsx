@@ -4,8 +4,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationService } from '@/services/notification-service';
 import { ROLE_DETAILS } from '@/lib/constants';
-import { Bell, Menu, User, LogOut, CheckCheck, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Bell, Menu, User, LogOut, CheckCheck, ArrowRight, ShieldCheck, Shield, Wrench, Sparkles } from 'lucide-react';
 import { formatRelativeTime } from '@/lib/formatters';
+import { Avatar } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/use-toast';
 
 export interface HeaderProps {
   onToggleSidebar: () => void;
@@ -13,9 +15,10 @@ export interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileMenu }) => {
-  const { user, logout } = useAuth();
+  const { user, login, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -41,6 +44,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const handleQuickSwitch = async (email: string, targetRoute: string, roleName: string) => {
+    setIsUserMenuOpen(false);
+    try {
+      const loggedUser = await login({ email, password: 'Password123!' });
+      toast.success(`Switched account to ${loggedUser.fullName} (${roleName}).`);
+      navigate(targetRoute);
+    } catch {
+      // The target account doesn't exist, or its credentials differ from the
+      // demo password. Clear any current session and send the person to the
+      // sign-in page to authenticate as that account manually.
+      toast.error(`${roleName} account unavailable — please sign in.`);
+      await logout();
+      navigate('/login', { state: { email } });
+    }
   };
 
   const roleInfo = user ? ROLE_DETAILS[user.role] : null;
@@ -191,9 +210,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
             className="flex items-center gap-2 rounded-xl p-1.5 hover:bg-slate-100 transition-colors"
             aria-label="User profile menu"
           >
-            <div className="h-8 w-8 rounded-full bg-teal-600 text-white flex items-center justify-center font-semibold text-xs shadow-sm ring-2 ring-teal-100">
-              {user?.fullName ? user.fullName[0].toUpperCase() : 'U'}
-            </div>
+            <Avatar
+              alt={user?.fullName}
+              fallback={user?.fullName}
+              role={user?.role}
+              size="sm"
+              showBorder
+            />
             <div className="text-left hidden md:block">
               <p className="text-xs font-semibold text-slate-800 leading-none">{user?.fullName}</p>
               <p className="text-[10px] text-slate-500 mt-0.5 leading-none">{user?.email}</p>
@@ -201,13 +224,21 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
           </button>
 
           {isUserMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-xl z-50 py-1 animate-in fade-in slide-in-from-top-2">
-              <div className="px-4 py-2.5 border-b border-slate-100">
-                <p className="text-xs font-semibold text-slate-900">{user?.fullName}</p>
-                <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
-                <div className="mt-1.5 flex items-center gap-1 text-[11px] text-teal-700 font-medium">
-                  <ShieldCheck className="h-3.5 w-3.5 text-teal-600" />
-                  <span className="capitalize">{user?.role} Portal</span>
+            <div className="absolute right-0 mt-2 w-60 rounded-xl border border-slate-200 bg-white shadow-xl z-50 py-1 animate-in fade-in slide-in-from-top-2">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                <Avatar
+                  alt={user?.fullName}
+                  fallback={user?.fullName}
+                  role={user?.role}
+                  size="md"
+                />
+                <div className="overflow-hidden">
+                  <p className="text-xs font-semibold text-slate-900 truncate">{user?.fullName}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+                  <div className="mt-1 flex items-center gap-1 text-[10px] text-teal-700 font-medium">
+                    <ShieldCheck className="h-3 w-3 text-teal-600" />
+                    <span className="capitalize">{user?.role} Portal</span>
+                  </div>
                 </div>
               </div>
 
@@ -219,6 +250,69 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
                 <User className="h-3.5 w-3.5 text-slate-400" />
                 <span>My Profile & Settings</span>
               </Link>
+
+              {/* Quick Persona Switcher */}
+              <div className="border-t border-slate-100 py-2 px-3 bg-slate-50/70">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
+                  <Sparkles className="h-3 w-3 text-teal-600" />
+                  <span>Switch Account</span>
+                </div>
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSwitch('admin@example.com', '/admin/dashboard', 'Administrator')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      user?.role === 'admin'
+                        ? 'bg-indigo-50 text-indigo-900 font-bold border border-indigo-200/80 shadow-2xs'
+                        : 'text-slate-700 hover:bg-white hover:shadow-2xs'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Shield className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Admin</span>
+                    </span>
+                    {user?.role === 'admin' && (
+                      <span className="text-[10px] bg-indigo-200 text-indigo-800 px-1.5 py-0.2 rounded-full font-bold">Active</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSwitch('worker@example.com', '/worker/dashboard', 'Field Technician')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      user?.role === 'worker'
+                        ? 'bg-amber-50 text-amber-900 font-bold border border-amber-200/80 shadow-2xs'
+                        : 'text-slate-700 hover:bg-white hover:shadow-2xs'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Wrench className="h-3.5 w-3.5 text-amber-600" />
+                      <span>Worker</span>
+                    </span>
+                    {user?.role === 'worker' && (
+                      <span className="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-0.2 rounded-full font-bold">Active</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSwitch('citizen@example.com', '/citizen/dashboard', 'Citizen')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      user?.role === 'citizen'
+                        ? 'bg-teal-50 text-teal-900 font-bold border border-teal-200/80 shadow-2xs'
+                        : 'text-slate-700 hover:bg-white hover:shadow-2xs'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 text-teal-600" />
+                      <span>Citizen</span>
+                    </span>
+                    {user?.role === 'citizen' && (
+                      <span className="text-[10px] bg-teal-200 text-teal-800 px-1.5 py-0.2 rounded-full font-bold">Active</span>
+                    )}
+                  </button>
+                </div>
+              </div>
 
               <button
                 onClick={handleLogout}

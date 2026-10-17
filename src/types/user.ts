@@ -5,6 +5,7 @@ export interface UserListItem {
   email: string;
   fullName: string;
   role: Role;
+  avatarUrl?: string;
   phone?: string;
   departmentId?: string;
   departmentName?: string;

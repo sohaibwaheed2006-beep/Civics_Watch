@@ -29,11 +29,16 @@ import { Notification } from '@/types/notification';
 import { AnalyticsSummary } from '@/types/analytics';
 import { PaginatedResponse } from '@/types/api';
 
+// Bumped to v7 so returning browsers drop departments cached with the old
+// broken remote imageUrls and re-seed with the self-hosted department banners
+// (/images/departments/*). The version is part of the key so a returning
+// browser drops its stale cache and re-seeds from the current INITIAL_*
+// constants instead of showing the old data.
 const STORAGE_KEYS = {
-  REPORTS: 'nir_mock_reports',
-  DEPARTMENTS: 'nir_mock_departments',
-  USERS: 'nir_mock_users',
-  NOTIFICATIONS: 'nir_mock_notifications',
+  REPORTS: 'nir_mock_reports_v7',
+  DEPARTMENTS: 'nir_mock_departments_v7',
+  USERS: 'nir_mock_users_v7',
+  NOTIFICATIONS: 'nir_mock_notifications_v7',
 };
 
 function getStorageItem<T>(key: string, defaultValue: T): T {
@@ -55,6 +60,24 @@ function setStorageItem<T>(key: string, val: T): void {
   } catch (e) {
     console.error('Storage error', e);
   }
+}
+
+// Read an uploaded File as a base64 data URL. Unlike URL.createObjectURL (a
+// blob: URL that only lives in the creating tab/session and dies on reload),
+// a data URL is a plain string that persists in localStorage and renders for
+// EVERY viewer — so the admin and the assigned worker see the citizen's actual
+// photo, not a generic fallback.
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    } catch {
+      resolve('');
+    }
+  });
 }
 
 export class MockBackendAdapter {
@@ -196,10 +219,29 @@ export class MockBackendAdapter {
       reports = reports.filter((r) => r.assignedWorkerId === params.assignedWorkerId);
     }
 
-    // Sort
+    // Sort: priority (urgent → low) first, then created date (newest first)
+    // unless the caller explicitly chose a different sortBy/order.
+    const priorityRank: Record<string, number> = {
+      urgent: 4,
+      high: 3,
+      medium: 2,
+      low: 1,
+    };
+    const dir = params.sortOrder === 'asc' ? 1 : -1;
+    const sortBy = params.sortBy || 'priority';
     reports.sort((a, b) => {
-      const order = params.sortOrder === 'asc' ? 1 : -1;
-      return (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) * (order === 1 ? -1 : 1);
+      if (sortBy === 'priority') {
+        const diff = (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0);
+        if (diff !== 0) return diff * (dir === -1 ? 1 : -1);
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      // Default createdAt-driven view still groups by priority first so admins
+      // see urgent/high items on top with their submission dates.
+      const pDiff = (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0);
+      if (pDiff !== 0) return pDiff;
+      const timeDiff =
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return timeDiff * (dir === -1 ? 1 : -1);
     });
 
     const page = params.page || 1;
@@ -238,6 +280,21 @@ export class MockBackendAdapter {
     const newId = `rep-${Math.floor(100 + Math.random() * 900)}`;
     const now = new Date().toISOString();
 
+    // Persist uploaded photos as data URLs so they survive reloads and are
+    // visible to the admin and the assigned worker, not just the uploader.
+    const photos = payload.photos
+      ? await Promise.all(
+          payload.photos.map(async (file, idx) => ({
+            id: `photo-${Date.now()}-${idx}`,
+            url: await fileToDataUrl(file),
+            filename: file.name,
+            fileType: file.type,
+            size: file.size,
+            uploadedAt: now,
+          }))
+        )
+      : [];
+
     const created: Report = {
       id: newId,
       title: payload.title,
@@ -248,16 +305,7 @@ export class MockBackendAdapter {
       latitude: payload.latitude,
       longitude: payload.longitude,
       address: payload.address || `${payload.latitude.toFixed(4)}, ${payload.longitude.toFixed(4)}`,
-      photos: payload.photos
-        ? payload.photos.map((file, idx) => ({
-            id: `photo-${Date.now()}-${idx}`,
-            url: URL.createObjectURL(file),
-            filename: file.name,
-            fileType: file.type,
-            size: file.size,
-            uploadedAt: now,
-          }))
-        : [],
+      photos,
       citizenId: currentUser.id,
       citizenName: currentUser.fullName,
       citizenEmail: currentUser.email,
@@ -556,6 +604,74 @@ export class MockBackendAdapter {
 
     this.setUsers(users);
     return users[idx];
+  }
+
+  // AI triage: suggest the department + best worker for a report, mirroring
+  // the backend /ai/reports/{id}/auto-route endpoint so the admin's one-click
+  // "Confirm & Dispatch" flow works in mock mode too.
+  static async getAutoRoute(reportId: string): Promise<any> {
+    await new Promise((r) => setTimeout(r, 250));
+    const reports = this.getReports();
+    const report = reports.find((r) => r.id === reportId);
+    const depts = this.getDepartments();
+
+    // Resolve the department: prefer the one already routed on the report,
+    // otherwise map the category to the standard three departments by name.
+    const categoryToKeyword: Record<string, string> = {
+      streetlight: 'electric',
+      water_leak: 'plumb',
+      drainage: 'plumb',
+      road_damage: 'general',
+      garbage_waste: 'general',
+      public_property: 'general',
+      other: 'general',
+    };
+    let dept = report?.departmentId ? depts.find((d) => d.id === report.departmentId) : undefined;
+    if (!dept && report) {
+      const keyword = categoryToKeyword[report.category] || 'general';
+      dept =
+        depts.find((d) => d.isActive && d.name.toLowerCase().includes(keyword)) ||
+        depts.find((d) => d.isActive && d.name.toLowerCase().includes('general'));
+    }
+
+    // Candidate workers = active workers in that department (any active worker
+    // if the department has none), ranked by fewest open assignments.
+    const users = this.getUsers();
+    const openStatuses = ['assigned', 'in_progress', 'under_review', 'reopened'];
+    const openCountFor = (workerId: string) =>
+      reports.filter((r) => r.assignedWorkerId === workerId && openStatuses.includes(r.status)).length;
+
+    let candidates = users.filter(
+      (u) => u.role === 'worker' && u.isActive && (!dept || u.departmentId === dept!.id)
+    );
+    if (candidates.length === 0) {
+      candidates = users.filter((u) => u.role === 'worker' && u.isActive);
+    }
+
+    let best: any = null;
+    const maxOpen = Math.max(0, ...candidates.map((w) => openCountFor(w.id)));
+    for (const w of candidates) {
+      const open = openCountFor(w.id);
+      const workloadScore = maxOpen > 0 ? 1 - open / maxOpen : 1;
+      const onTime = 0.85; // neutral baseline (mock has no history)
+      const score = 0.6 * workloadScore + 0.4 * onTime;
+      if (!best || score > best.score) {
+        best = {
+          workerId: w.id,
+          workerName: w.fullName,
+          departmentId: w.departmentId ?? null,
+          openAssignments: open,
+          recentOnTimeRate: onTime,
+          score,
+        };
+      }
+    }
+
+    return {
+      departmentId: dept?.id ?? null,
+      departmentName: dept?.name ?? null,
+      suggestedWorker: best,
+    };
   }
 
   // Worker Assignments

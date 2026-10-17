@@ -53,14 +53,14 @@ export const Modal: React.FC<ModalProps> = ({
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in"
         onClick={onClose}
       />
 
       {/* Content */}
       <div
         className={cn(
-          'relative w-full rounded-2xl bg-white p-6 shadow-2xl transition-all border border-slate-200 z-10 my-8',
+          'relative w-full rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 z-10 my-8 animate-in fade-in zoom-in-95',
           sizeClasses[size]
         )}
       >

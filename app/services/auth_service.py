@@ -25,8 +25,11 @@ from app.core.logging import get_logger
 from app.core.security import (
     access_token_expires_in_seconds,
     create_access_token,
+    create_password_reset_token,
+    decode_password_reset_token,
     hash_password,
     needs_rehash,
+    password_hash_fingerprint,
     verify_password,
 )
 from app.models.user import User
@@ -43,7 +46,12 @@ __all__ = [
     "load_active_user",
     "update_own_profile",
     "change_password",
+    "request_password_reset",
+    "reset_password",
 ]
+
+#: Shown for an invalid, expired or already-used reset or verification link.
+_INVALID_LINK = "This link is invalid or has expired. Please request a new one."
 
 #: Returned for both an unknown email and a wrong password, so the endpoint
 #: cannot be used to discover which addresses are registered.
@@ -219,3 +227,61 @@ def change_password(
     user.password_hash = hash_password(payload.new_password)
     db.commit()
     logger.info("Password changed for user id=%s", user_id)
+
+
+# ---------------------------------------------------------------------------
+# Password reset
+# ---------------------------------------------------------------------------
+def request_password_reset(db: Session, email: str) -> tuple[User, str] | None:
+    """Begin a password reset for ``email``.
+
+    Returns ``(user, token)`` when a reset link should be sent, or ``None``
+    when it should not (no such account, or a deactivated one). The caller
+    always returns the same acknowledgement regardless, so the *endpoint* never
+    reveals which addresses are registered; this function tells the caller only
+    whether there is in fact an email to dispatch.
+    """
+    user = user_repository.get_by_email(db, email)
+    if user is None:
+        logger.info("Password reset requested for an unknown email")
+        return None
+    if not user.is_active:
+        logger.info("Password reset requested for inactive user id=%s", user.id)
+        return None
+
+    token = create_password_reset_token(user.id, user.password_hash)
+    logger.info("Issued a password-reset token for user id=%s", user.id)
+    return user, token
+
+
+def reset_password(db: Session, token: str, new_password: str) -> None:
+    """Set a new password from a valid reset token.
+
+    The token embeds a fingerprint of the password it was minted against, so a
+    link that has already been used (or was issued before an intervening
+    password change) no longer matches and is refused.
+
+    Raises
+    ------
+    BadRequestError
+        The token is invalid, expired, already used, or names a user who no
+        longer exists or is inactive (400).
+    """
+    decoded = decode_password_reset_token(token)
+    if decoded is None:
+        raise BadRequestError(_INVALID_LINK)
+    user_id, fingerprint = decoded
+
+    user = user_repository.get_by_id(db, user_id)
+    if user is None or not user.is_active:
+        logger.info("Password reset refused: user %s missing or inactive", user_id)
+        raise BadRequestError(_INVALID_LINK)
+
+    if fingerprint != password_hash_fingerprint(user.password_hash):
+        # The password has changed since the link was issued: the link is spent.
+        logger.info("Password reset refused for user id=%s: stale link", user.id)
+        raise BadRequestError(_INVALID_LINK)
+
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    logger.info("Password reset completed for user id=%s", user.id)

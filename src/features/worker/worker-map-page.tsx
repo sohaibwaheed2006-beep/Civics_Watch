@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useQuery } from '@tanstack/react-query';
-import { assignmentService } from '@/services/assignment-service';
+import { reportService } from '@/services/report-service';
 import { IssueMap } from '@/components/maps/issue-map';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { CardSkeleton } from '@/components/ui/skeleton';
@@ -10,13 +10,15 @@ import { ErrorPanel } from '@/components/ui/error-panel';
 export const WorkerMapPage: React.FC = () => {
   const { user } = useAuth();
 
+  // Workers see the whole community map; their own assignments are highlighted
+  // (larger, ringed, badged) and can be isolated with the "My assignments"
+  // filter on the map toolbar.
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['worker-map-assignments', user?.id],
-    queryFn: () => (user ? assignmentService.getWorkerAssignments(user.id, { limit: 50 }) : Promise.reject()),
-    enabled: Boolean(user?.id),
+    queryKey: ['worker-map-reports'],
+    queryFn: () => reportService.getMapReports({ limit: 500 }),
   });
 
-  const reports = (data?.data || []).map((a) => a.report);
+  const reports = data || [];
 
   return (
     <div className="space-y-4">
@@ -33,7 +35,7 @@ export const WorkerMapPage: React.FC = () => {
             Field Technician Navigation Map
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Geographic view of all issues assigned to you. Tap any pin to inspect the problem or trigger directions.
+            Geographic view of every community issue. Your assignments are highlighted — use the "My assignments" filter to focus on them.
           </p>
         </div>
       </div>
@@ -45,7 +47,11 @@ export const WorkerMapPage: React.FC = () => {
       ) : isError ? (
         <ErrorPanel onRetry={refetch} message="Unable to load field map." />
       ) : (
-        <IssueMap reports={reports} baseDetailRoute="/worker/assignments" />
+        <IssueMap
+          reports={reports}
+          baseDetailRoute="/worker/assignments"
+          highlightWorkerId={user?.id}
+        />
       )}
     </div>
   );

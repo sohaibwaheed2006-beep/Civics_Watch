@@ -2,6 +2,7 @@ export interface Department {
   id: string;
   name: string;
   description: string;
+  imageUrl?: string;
   defaultSlaHours: number;
   isActive: boolean;
   workerCount: number;

@@ -3,6 +3,9 @@ import { ApiErrorResponse, ApiErrorDetail } from '@/types/api';
 
 export interface ParsedApiError {
   message: string;
+  // Stable backend error code from the envelope (e.g. 'unauthorized',
+  // 'not_found', 'conflict'), when present. Branch on this rather than the message.
+  code?: string;
   fieldErrors?: Record<string, string>;
   status?: number;
   isNetworkError: boolean;
@@ -25,6 +28,37 @@ export function parseApiError(error: unknown): ParsedApiError {
     }
 
     const fieldErrors: Record<string, string> = {};
+
+    // Canonical backend envelope: { error: { code, message, details: [...] } }.
+    // This is the shape THIS API actually returns, so it is checked first.
+    // Without this branch every error fell through to the generic per-status
+    // message below (e.g. a failed login showed "session expired" instead of
+    // "Incorrect email or password.").
+    if (data?.error && typeof data.error === 'object') {
+      const envelope = data.error;
+      (envelope.details ?? []).forEach((item) => {
+        // `field` looks like "body.email" / "query.page" / "__request__".
+        // Use the last dotted segment as the form field name.
+        const rawField = item.field ?? '';
+        const fieldName = rawField.split('.').pop() ?? '';
+        if (fieldName && fieldName !== 'body' && fieldName !== '__request__' && item.message) {
+          fieldErrors[fieldName] = item.message;
+        }
+      });
+
+      const message =
+        envelope.message ||
+        'Something went wrong. Please check the entered information and try again.';
+
+      return {
+        message,
+        code: envelope.code,
+        fieldErrors: Object.keys(fieldErrors).length > 0 ? fieldErrors : undefined,
+        status,
+        isNetworkError: false,
+        isAuthError: status === 401 || status === 403,
+      };
+    }
 
     // FastAPI 422 validation errors format: { detail: [{ loc: [...], msg: "..." }] }
     if (data?.detail && Array.isArray(data.detail)) {

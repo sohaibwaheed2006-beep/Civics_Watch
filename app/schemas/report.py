@@ -103,7 +103,9 @@ class ReportSummary(APIModel):
     longitude: float
     citizen_id: int
     department_id: int | None = None
+    department_name: str | None = None
     assigned_worker_id: int | None = None
+    assigned_worker_name: str | None = None
     created_at: datetime
     updated_at: datetime
     deadline_at: datetime | None = None
@@ -115,22 +117,44 @@ class ReportRead(ReportSummary):
     """Full report view, used on detail endpoints."""
 
     description: str
+    citizen_name: str | None = None
+    citizen_email: str | None = None
     location_text: str | None = None
     ai_category: str | None = None
     ai_confidence: float | None = None
+    ai_title_suggested: str | None = None
+    ai_description_suggested: str | None = None
+    ai_priority_suggested: str | None = None
     duplicate_score: float | None = None
     duplicate_of_report_id: int | None = None
+    incident_cluster_id: int | None = None
+    resolution_photo_match_score: float | None = None
+    resolution_flagged_for_review: bool = False
+    resolution_review_reason: str | None = None
+    spam_score: float | None = None
+    spam_flagged: bool = False
+    spam_reason: str | None = None
 
 
 class ReportMapMarker(APIModel):
-    """Lean payload for map tiles. No PII."""
+    """Payload for map tiles. Carries report content (title/location/summary)
+    so the marker popup can render without a second fetch, but no citizen PII.
+
+    ``assigned_worker_id`` lets the field-worker map highlight the markers that
+    belong to the signed-in worker while still showing the whole community.
+    """
 
     id: int
+    title: str
     category: ReportCategory
     status: ReportStatus
     priority: ReportPriority
     latitude: float
     longitude: float
+    location_text: str | None = None
+    description: str | None = None
+    assigned_worker_id: int | None = None
+    created_at: datetime
 
 
 class DuplicateCandidate(APIModel):

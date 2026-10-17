@@ -63,16 +63,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (data: RegisterData): Promise<User> => {
-    setIsLoading(true);
-    try {
-      const res = await authService.register(data);
-      setUser(res.user);
-      setToken(res.accessToken);
-      queryClient.clear();
-      return res.user;
-    } finally {
-      setIsLoading(false);
-    }
+    // Registration creates the account but does NOT start a session. The user
+    // is directed to the sign-in page to log in explicitly afterwards, so we
+    // do not set the user/token here.
+    return await authService.register(data);
   };
 
   const logout = async (): Promise<void> => {

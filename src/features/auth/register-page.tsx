@@ -8,7 +8,6 @@ import { useToast } from '@/hooks/use-toast';
 import { parseApiError } from '@/lib/api-errors';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Mail, Lock, User, Phone, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
@@ -21,6 +20,7 @@ export const RegisterPage: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -44,26 +44,85 @@ export const RegisterPage: React.FC = () => {
         password: data.password,
       });
 
-      toast.success(`Account created! Welcome, ${user.fullName}.`);
-      navigate('/citizen/dashboard', { replace: true });
+      // Registration does NOT log the user in. Send them to the sign-in page
+      // so they authenticate explicitly, pre-filling the email for convenience.
+      toast.success(`Account created for ${user.fullName}. Please sign in to continue.`);
+      navigate('/login', { replace: true, state: { registeredEmail: data.email } });
     } catch (err) {
       const parsed = parseApiError(err);
+
+      // Map any field-specific server errors back onto the matching inputs so
+      // the person sees exactly what to fix (e.g. "email already registered").
+      if (parsed.fieldErrors) {
+        Object.entries(parsed.fieldErrors).forEach(([field, message]) => {
+          if (['fullName', 'email', 'phone', 'password', 'confirmPassword'].includes(field)) {
+            setError(field as keyof RegisterFormData, { type: 'server', message });
+          }
+        });
+      }
+
       setServerError(parsed.message);
       toast.error(parsed.message, 'Registration Failed');
     }
   };
 
   return (
-    <div className="w-full max-w-lg my-6">
-      <Card className="shadow-xl border-slate-200">
-        <CardHeader className="text-center pb-2">
-          <CardTitle className="text-xl">Citizen Registration</CardTitle>
-          <CardDescription>
-            Join your community to report local issues, track repairs, and make your neighborhood better.
-          </CardDescription>
-        </CardHeader>
+    <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden shadow-2xl border border-slate-200/90 bg-white my-6">
+      {/* Visual Hero Panel (5 cols) */}
+      <div className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-8 text-white overflow-hidden bg-slate-950">
+        <img
+          src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80"
+          alt="Community Neighborhood"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!img.src.includes('/images/auth/civic-city.jpg')) {
+              img.src = '/images/auth/civic-city.jpg';
+            } else {
+              img.style.display = 'none';
+            }
+          }}
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-40 mix-blend-screen"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-teal-950 via-slate-950/80 to-teal-900/40" />
 
-        <CardContent className="space-y-5">
+        <div className="relative z-10 space-y-2">
+          <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-400/30">
+            Citizen Engagement
+          </span>
+          <h2 className="text-2xl font-black tracking-tight leading-tight">
+            Make Your Neighborhood Heard.
+          </h2>
+          <p className="text-xs text-teal-100/90 leading-relaxed pt-1">
+            Submit road hazards, water leaks, and street sanitation tickets directly to local city crews in seconds.
+          </p>
+        </div>
+
+        <div className="relative z-10 space-y-3 pt-6 border-t border-teal-800/40 text-xs text-teal-200">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Live municipal dispatch system</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-teal-400" />
+            <span>Direct photographic verification</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-cyan-400" />
+            <span>Transparent resolution notifications</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Form Panel (7 cols) */}
+      <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-center">
+        <div className="mb-4">
+          <h3 className="text-xl font-bold text-slate-900">Citizen Registration</h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Join your community to report local issues, track repairs, and make your neighborhood better.
+          </p>
+        </div>
+
+        <div className="space-y-4">
           {serverError && (
             <div
               role="alert"
@@ -85,7 +144,7 @@ export const RegisterPage: React.FC = () => {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
             <Input
               label="Full Name"
               placeholder="Sarah Jenkins"
@@ -121,6 +180,7 @@ export const RegisterPage: React.FC = () => {
                 type="password"
                 placeholder="••••••••"
                 leftIcon={<Lock className="h-4 w-4" />}
+                helperText="At least 8 characters."
                 error={errors.password?.message}
                 required
                 {...register('password')}
@@ -161,14 +221,14 @@ export const RegisterPage: React.FC = () => {
             </Button>
           </form>
 
-          <div className="text-center text-xs text-slate-500 border-t border-slate-100 pt-4">
+          <div className="text-center text-xs text-slate-500 border-t border-slate-100 pt-3">
             Already have an account?{' '}
             <Link to="/login" className="font-semibold text-teal-600 hover:text-teal-800">
               Sign in here
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

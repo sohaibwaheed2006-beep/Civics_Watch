@@ -163,11 +163,15 @@ def test_admin_routes_are_mounted_under_the_versioned_prefix(
     paths = _effective_paths(app)
     prefix = settings.API_V1_PREFIX
 
+    # Collection routes are mounted WITHOUT a trailing slash, matching every
+    # other router. A trailing-slash route would make FastAPI 307-redirect
+    # "/users" to an absolute URL built from the Host header, which sends the
+    # browser off the dev-proxy origin and drops the Authorization header.
     for expected in (
-        f"{prefix}/users/",
+        f"{prefix}/users",
         f"{prefix}/users/{{user_id}}",
         f"{prefix}/users/{{user_id}}/role",
-        f"{prefix}/departments/",
+        f"{prefix}/departments",
         f"{prefix}/departments/{{department_id}}",
     ):
         assert expected in paths, f"missing route: {expected}"

@@ -13,14 +13,98 @@
     --border: 214 32% 91%;
   }
 
+  html {
+    /* Smooth in-page anchor navigation (breadcrumbs, skip links). */
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased min-h-screen selection:bg-teal-100 selection:text-teal-900;
+    @apply text-slate-900 font-sans antialiased min-h-screen selection:bg-teal-100 selection:text-teal-900;
+    /* Slate-50 base lifted with a whisper of brand tint at the top of the
+       viewport, so the canvas feels lit rather than flat grey. Fixed so it
+       stays put while content scrolls. */
+    background-color: #f8fafc;
+    background-image:
+      radial-gradient(ellipse 90% 55% at 50% -10%, rgb(20 184 166 / 0.07), transparent 70%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, rgb(99 102 241 / 0.04), transparent 60%);
+    background-attachment: fixed;
+    /* Inter's contextual alternates + kerning for crisper text; discretionary
+       ligatures off so code-like IDs stay legible. */
+    font-feature-settings: 'cv11', 'ss01';
+    font-variant-ligatures: contextual;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Tighter, more deliberate tracking on display headings. */
+  h1, h2, h3 {
+    @apply tracking-tight;
+  }
+
+  /* Numeric data (tables, stats, counters) aligns in columns. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
   }
 
   /* Accessible focus indicators */
   *:focus-visible {
     @apply outline-none ring-2 ring-teal-500 ring-offset-2 ring-offset-white;
   }
+
+  /* Honour reduced-motion: disable the smooth scroll and enter animations. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    .animate-in,
+    *[class*='animate-'] {
+      animation: none !important;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Composable enter animations
+ *
+ * Lightweight stand-in for `tailwindcss-animate` (not a dependency). The
+ * `enter` keyframe lives in tailwind.config.js; these classes set the custom
+ * properties it reads, so markup like `animate-in fade-in slide-in-from-top-2`
+ * resolves to a real transition instead of a no-op.
+ * ------------------------------------------------------------------ */
+.animate-in {
+  animation-name: enter;
+  animation-duration: 160ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  --tw-enter-opacity: 0;
+}
+
+.zoom-in-95 {
+  --tw-enter-scale: 0.95;
+}
+
+.slide-in-from-top-1 {
+  --tw-enter-translate-y: -0.25rem;
+}
+
+.slide-in-from-top-2 {
+  --tw-enter-translate-y: -0.5rem;
+}
+
+.slide-in-from-bottom-2 {
+  --tw-enter-translate-y: 0.5rem;
+}
+
+.slide-in-from-left-4 {
+  --tw-enter-translate-x: -1rem;
+}
+
+.slide-in-from-right-4 {
+  --tw-enter-translate-x: 1rem;
 }
 
 /* Leaflet map styles container */

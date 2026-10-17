@@ -59,6 +59,39 @@ def remove_vote(
     return VoteCountRead(report_id=report_id, count=count, voted=False)
 
 
+@router.post(
+    "/{report_id}/upvote",
+    response_model=VoteCountRead,
+    status_code=status.HTTP_200_OK,
+    summary="Toggle your vote for a report",
+    responses={
+        **_AUTH_ERRORS,
+        status.HTTP_403_FORBIDDEN: {"model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+    },
+    description=(
+        "Toggles the caller's vote: adds it if absent, removes it if present. "
+        "Returns the new count and whether the caller is now a voter. Voting "
+        "on your own report is refused (403)."
+    ),
+)
+def toggle_vote(
+    db: DbSession,
+    current_user: CurrentUser,
+    report_id: Annotated[int, Path(ge=1)],
+) -> VoteCountRead:
+    report_service.get_report(db, report_id)  # 404 if the report is gone
+    if report_service.has_voted(
+        db, report_id=report_id, user_id=current_user.id
+    ):
+        count = report_service.remove_vote(
+            db, report_id=report_id, user=current_user
+        )
+        return VoteCountRead(report_id=report_id, count=count, voted=False)
+    count = report_service.add_vote(db, report_id=report_id, user=current_user)
+    return VoteCountRead(report_id=report_id, count=count, voted=True)
+
+
 @router.get(
     "/{report_id}/votes",
     response_model=VoteCountRead,

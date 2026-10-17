@@ -13,6 +13,7 @@ import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatCategory, formatDate } from '@/lib/formatters';
+import { getCategoryCoverImage, handleImageFallback } from '@/lib/category-images';
 import { MapPin, Navigation, ArrowRight, LayoutGrid, List } from 'lucide-react';
 import { ReportPriority, ReportStatus } from '@/types/report';
 
@@ -140,57 +141,84 @@ export const WorkerAssignmentsPage: React.FC = () => {
         />
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {assignments.map((assignment) => (
-            <Card
-              key={assignment.id}
-              hoverEffect
-              className="flex flex-col justify-between border-slate-200/90 hover:border-amber-400"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <StatusBadge status={assignment.report.status} size="sm" />
-                  <PriorityBadge priority={assignment.report.priority} size="sm" />
+          {assignments.map((assignment) => {
+            const photoUrl =
+              assignment.report.photos && assignment.report.photos.length > 0
+                ? assignment.report.photos[0].url
+                : getCategoryCoverImage(assignment.report.category);
+
+            return (
+              <Card
+                key={assignment.id}
+                hoverEffect
+                className="flex flex-col justify-between group overflow-hidden border-slate-200/90 hover:border-amber-400"
+              >
+                <div>
+                  {/* Photo Banner */}
+                  <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-3 bg-slate-100 overflow-hidden border-b border-slate-100">
+                    <img
+                      src={photoUrl}
+                      alt={assignment.report.title}
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        const catCover = getCategoryCoverImage(assignment.report.category);
+                        if (target.src !== catCover) {
+                          target.src = catCover;
+                        } else {
+                          handleImageFallback(e, assignment.report.category);
+                        }
+                      }}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                    <div className="absolute top-2.5 left-2.5">
+                      <StatusBadge status={assignment.report.status} size="sm" />
+                    </div>
+                    <div className="absolute top-2.5 right-2.5">
+                      <PriorityBadge priority={assignment.report.priority} size="sm" />
+                    </div>
+                  </div>
+
+                  <h3 className="text-sm font-semibold text-slate-900 group-hover:text-amber-700 transition-colors line-clamp-1">
+                    {assignment.report.title}
+                  </h3>
+
+                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                    {assignment.report.description}
+                  </p>
+
+                  <div className="mt-3 space-y-1.5 text-xs text-slate-500 border-t border-slate-100 pt-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{assignment.report.address}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span>{formatCategory(assignment.report.category)}</span>
+                      <span>Assigned {formatDate(assignment.assignedAt)}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <h3 className="text-sm font-semibold text-slate-900 line-clamp-1">
-                  {assignment.report.title}
-                </h3>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${assignment.report.latitude},${assignment.report.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+                  >
+                    <Navigation className="h-3.5 w-3.5 text-teal-600" />
+                    <span>Navigate</span>
+                  </a>
 
-                <p className="text-xs text-slate-600 mt-1 line-clamp-2">
-                  {assignment.report.description}
-                </p>
-
-                <div className="mt-3 space-y-1.5 text-xs text-slate-500 border-t border-slate-100 pt-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate">{assignment.report.address}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span>{formatCategory(assignment.report.category)}</span>
-                    <span>Assigned {formatDate(assignment.assignedAt)}</span>
-                  </div>
+                  <Link to={`/worker/assignments/${assignment.report.id}`}>
+                    <Button size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+                      Open Order
+                    </Button>
+                  </Link>
                 </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${assignment.report.latitude},${assignment.report.longitude}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
-                >
-                  <Navigation className="h-3.5 w-3.5 text-teal-600" />
-                  <span>Navigate</span>
-                </a>
-
-                <Link to={`/worker/assignments/${assignment.report.id}`}>
-                  <Button size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
-                    Open Order
-                  </Button>
-                </Link>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -207,16 +235,40 @@ export const WorkerAssignmentsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {assignments.map((assignment) => (
-                  <tr key={assignment.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 max-w-sm">
-                      <p className="font-semibold text-slate-900 truncate">
-                        {assignment.report.title}
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate">
-                        {assignment.report.address}
-                      </p>
-                    </td>
+                {assignments.map((assignment) => {
+                  const thumbUrl =
+                    assignment.report.photos && assignment.report.photos.length > 0
+                      ? assignment.report.photos[0].url
+                      : getCategoryCoverImage(assignment.report.category);
+
+                  return (
+                    <tr key={assignment.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 max-w-sm">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={thumbUrl}
+                            alt=""
+                            onError={(e) => {
+                              const target = e.currentTarget as HTMLImageElement;
+                              const catCover = getCategoryCoverImage(assignment.report.category);
+                              if (target.src !== catCover) {
+                                target.src = catCover;
+                              } else {
+                                handleImageFallback(e, assignment.report.category);
+                              }
+                            }}
+                            className="h-10 w-12 rounded-lg object-cover shrink-0 border border-slate-200"
+                          />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 truncate">
+                              {assignment.report.title}
+                            </p>
+                            <p className="text-[11px] text-slate-500 truncate">
+                              {assignment.report.address}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
 
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <span className="font-medium text-slate-800">
@@ -256,8 +308,9 @@ export const WorkerAssignmentsPage: React.FC = () => {
                       </Link>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}
+            </tbody>
             </table>
           </div>
         </div>

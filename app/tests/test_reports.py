@@ -127,7 +127,7 @@ class TestListAndGet:
         assert response.status_code == 200
         assert response.json()["items"] == []
 
-    def test_map_endpoint_returns_minimal_fields(
+    def test_map_endpoint_returns_marker_fields_without_pii(
         self, client, api_prefix, auth_headers
     ) -> None:
         data = _post_report(client, api_prefix, auth_headers)
@@ -138,14 +138,61 @@ class TestListAndGet:
         markers = response.json()
         assert any(m["id"] == data["id"] for m in markers)
         for m in markers:
+            # Carries enough report content to render a marker popup without a
+            # second fetch...
             assert set(m.keys()) == {
                 "id",
+                "title",
                 "category",
                 "status",
                 "priority",
                 "latitude",
                 "longitude",
+                "location_text",
+                "description",
+                "assigned_worker_id",
+                "created_at",
             }
+            # ...but never any citizen PII.
+            assert "citizen_id" not in m
+            assert "citizen_email" not in m
+
+    def test_admin_list_sorted_by_priority_urgent_first(
+        self, client, api_prefix, auth_headers, admin_headers
+    ) -> None:
+        """Admin triage view must rank urgent/high above medium/low."""
+        # Submit three reports whose AI-assigned priorities will span the range.
+        _post_report(
+            client,
+            api_prefix,
+            auth_headers,
+            overrides={"title": "Garbage pile", "description": "Trash accumulating.", "category": "garbage"},
+        )
+        _post_report(
+            client,
+            api_prefix,
+            auth_headers,
+            overrides={"title": "Pothole on 5th", "description": "Large crack in road.", "category": "road_damage"},
+        )
+        _post_report(
+            client,
+            api_prefix,
+            auth_headers,
+            overrides={
+                "title": "Burst water main",
+                "description": "URGENT - flooding the street now.",
+                "category": "water_leak",
+            },
+        )
+
+        response = client.get(f"{api_prefix}/reports", headers=admin_headers)
+        assert response.status_code == 200
+        items = response.json()["items"]
+        assert len(items) >= 3
+
+        rank = {"urgent": 4, "high": 3, "medium": 2, "low": 1}
+        ranks = [rank[item["priority"]] for item in items]
+        assert ranks == sorted(ranks, reverse=True)
 
     def test_filter_by_status(
         self, client, api_prefix, auth_headers, admin_headers
@@ -347,6 +394,57 @@ class TestAssignment:
         assert rows[0].unassigned_at is not None
         assert rows[1].active is True
 
+    def test_redispatch_same_worker_succeeds(
+        self, client, api_prefix, auth_headers, admin_headers,
+        make_user, make_department, db
+    ) -> None:
+        # Re-dispatching a report to the worker it is already assigned to is a
+        # supported action (the admin's "Re-dispatch" button), not a 409.
+        dept = make_department(name="Roads & Pavements")
+        worker = make_user(
+            email="w@example.com", role=UserRole.WORKER, department_id=dept.id
+        )
+        data = _post_report(client, api_prefix, auth_headers)
+        rid = data["id"]
+
+        first = client.post(
+            f"{api_prefix}/reports/{rid}/assign",
+            json={"worker_id": worker.id},
+            headers=admin_headers,
+        )
+        assert first.status_code == 201
+
+        # Same worker again, this time with a priority/deadline override.
+        second = client.post(
+            f"{api_prefix}/reports/{rid}/assign",
+            json={
+                "worker_id": worker.id,
+                "priority": "urgent",
+                "deadline": "2026-10-31T18:04:00Z",
+            },
+            headers=admin_headers,
+        )
+        assert second.status_code == 201
+
+        from app.models.assignment import Assignment
+        rows = (
+            db.query(Assignment)
+            .filter(Assignment.report_id == rid)
+            .order_by(Assignment.id.asc())
+            .all()
+        )
+        # The previous assignment is closed and a fresh active one is opened.
+        assert len(rows) == 2
+        assert rows[0].active is False
+        assert rows[1].active is True
+        assert rows[1].worker_id == worker.id
+
+        detail = client.get(
+            f"{api_prefix}/reports/{rid}", headers=admin_headers
+        ).json()
+        assert detail["priority"] == "urgent"
+        assert detail["deadline_at"] is not None
+
 
 # ---------------------------------------------------------------------------
 # Votes
@@ -522,6 +620,116 @@ class TestAiService:
             description="urgent cleanup needed",
         )
         assert p == ReportPriority.URGENT
+
+    def test_gemini_classification_used_when_available(
+        self, monkeypatch
+    ) -> None:
+        """When Gemini succeeds, its category/priority drive the result."""
+        from app.services import ai_service
+
+        fake = ai_service.AiClassification(
+            category=ReportCategory.WATER_LEAK,
+            priority=ReportPriority.URGENT,
+            confidence=0.92,
+            source="gemini",
+        )
+
+        def _fake_call(settings, *, title, description):
+            return fake
+
+        monkeypatch.setattr(ai_service, "_call_gemini", _fake_call)
+        monkeypatch.setattr(
+            "app.core.config.Settings.gemini_configured",
+            property(lambda self: True),
+        )
+        ai_service.clear_classification_cache()
+
+        cat = suggest_category("something odd", "it's happening on 7th")
+        assert cat is not None
+        assert cat.source == "ai"
+        assert cat.category == ReportCategory.WATER_LEAK
+
+        prio = suggest_priority(
+            category=ReportCategory.GARBAGE,  # user picked wrong category
+            title="something odd",
+            description="it's happening on 7th",
+        )
+        # Gemini said URGENT - overrides the garbage baseline (LOW).
+        assert prio == ReportPriority.URGENT
+
+        ai_service.clear_classification_cache()
+
+    def test_falls_back_when_gemini_fails(self, monkeypatch) -> None:
+        """A failing Gemini call must not break classification."""
+        from app.services import ai_service
+
+        def _boom(settings, *, title, description):
+            raise RuntimeError("network boom")
+
+        monkeypatch.setattr(ai_service, "_call_gemini", _boom)
+        monkeypatch.setattr(
+            "app.core.config.Settings.gemini_configured",
+            property(lambda self: True),
+        )
+        ai_service.clear_classification_cache()
+
+        cat = suggest_category("Pothole on 5th", "deep crack in asphalt")
+        assert cat is not None
+        assert cat.source == "deterministic"
+        assert cat.category == ReportCategory.ROAD_DAMAGE
+
+        ai_service.clear_classification_cache()
+
+    def test_gemini_response_parsed_into_classification(self) -> None:
+        """The REST payload parser accepts a valid Gemini envelope."""
+        from app.services.ai_service import _parse_gemini_response
+
+        payload = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "text": (
+                                    '{"category":"water_leak",'
+                                    '"priority":"urgent",'
+                                    '"confidence":0.88}'
+                                )
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        result = _parse_gemini_response(payload)
+        assert result is not None
+        assert result.category == ReportCategory.WATER_LEAK
+        assert result.priority == ReportPriority.URGENT
+        assert result.source == "gemini"
+        assert 0.0 <= result.confidence <= 1.0
+
+    def test_gemini_response_rejects_bad_values(self) -> None:
+        """Unknown enum values are refused so the deterministic path runs."""
+        from app.services.ai_service import _parse_gemini_response
+
+        payload = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "text": (
+                                    '{"category":"made_up",'
+                                    '"priority":"nuclear",'
+                                    '"confidence":1.0}'
+                                )
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        assert _parse_gemini_response(payload) is None
 
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { DEFAULT_MAP_CONFIG } from '@/lib/constants';
 import { Map, Shield, Server, LogOut, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Avatar } from '@/components/ui/avatar';
 
 export const AdminSettingsPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -67,16 +68,34 @@ export const AdminSettingsPage: React.FC = () => {
           <CardDescription>Current administrative session credentials.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <p className="text-slate-400 font-medium">Logged In As</p>
-              <p className="font-semibold text-slate-900 mt-0.5">{user?.fullName}</p>
-              <p className="text-slate-500">{user?.email}</p>
+          <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 mb-4">
+            <Avatar
+              alt={user?.fullName}
+              fallback={user?.fullName}
+              role="admin"
+              size="lg"
+              showBorder
+            />
+            <div>
+              <p className="text-base font-bold text-slate-900">{user?.fullName}</p>
+              <p className="text-xs text-slate-500">{user?.email}</p>
+              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 mt-1">
+                Executive Super Administrator
+              </span>
             </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="p-3 bg-white rounded-xl border border-slate-200">
+              <p className="text-slate-400 font-medium">Session Status</p>
+              <p className="font-semibold text-emerald-700 mt-0.5 flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                Active Authenticated Session
+              </p>
+            </div>
+            <div className="p-3 bg-white rounded-xl border border-slate-200">
               <p className="text-slate-400 font-medium">System Privilege Level</p>
-              <p className="font-semibold text-teal-700 mt-0.5">Super Administrator</p>
-              <p className="text-slate-500">Full platform permissions</p>
+              <p className="font-semibold text-teal-700 mt-0.5">Tier 1 Administrative Access</p>
+              <p className="text-slate-500">Full municipal platform management</p>
             </div>
           </div>
         </CardContent>

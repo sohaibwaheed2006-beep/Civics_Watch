@@ -95,5 +95,9 @@ class DepartmentRead(APIModel):
     description: str | None = Field(default=None, description="Longer description.")
     is_active: bool = Field(description="False once the department is retired.")
     default_sla_hours: int = Field(description="Target resolution time in hours.")
+    worker_count: int = Field(
+        default=0,
+        description="Number of active workers currently assigned to this department.",
+    )
     created_at: datetime = Field(description="Creation timestamp (UTC).")
     updated_at: datetime = Field(description="Last modification timestamp (UTC).")

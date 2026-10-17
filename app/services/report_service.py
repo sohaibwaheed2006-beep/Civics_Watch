@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Sequence
 
-from sqlalchemy import Select, and_, func, select
+from sqlalchemy import Select, and_, case, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -43,7 +43,10 @@ from app.services import (
     ai_service,
     deadline_service,
     duplicate_detection_service,
+    incident_cluster_service,
     notification_service,
+    routing_service,
+    spam_filter_service,
 )
 
 logger = get_logger(__name__)
@@ -66,45 +69,36 @@ __all__ = [
 ]
 
 
+#: Priority ranks that sort urgent → high → medium → low when ordered
+#: descending. The DB column is a string, so a plain ORDER BY would sort
+#: alphabetically ("high" < "low" < "medium" < "urgent") which is wrong.
+_PRIORITY_RANK = case(
+    {
+        ReportPriority.URGENT.value: 4,
+        ReportPriority.HIGH.value: 3,
+        ReportPriority.MEDIUM.value: 2,
+        ReportPriority.LOW.value: 1,
+    },
+    value=Report.priority,
+    else_=0,
+)
+
 SORTABLE_FIELDS: dict[str, object] = {
     "id": Report.id,
     "created_at": Report.created_at,
     "updated_at": Report.updated_at,
-    "priority": Report.priority,
+    "priority": _PRIORITY_RANK,
     "status": Report.status,
     "deadline_at": Report.deadline_at,
 }
 DEFAULT_SORT_FIELD = "created_at"
 
 
-#: Default category->department name mapping. The service tolerates a missing
-#: department: a report submitted before any routing is configured keeps a
-#: null ``department_id`` and the admin triage queue picks it up.
-_CATEGORY_DEPARTMENT_HINTS: dict[ReportCategory, tuple[str, ...]] = {
-    ReportCategory.ROAD_DAMAGE: ("Roads & Pavements", "Roads"),
-    ReportCategory.STREETLIGHT: ("Lighting", "Public Works"),
-    ReportCategory.GARBAGE: ("Sanitation", "Waste Management"),
-    ReportCategory.WATER_LEAK: ("Water", "Water & Sewer"),
-    ReportCategory.DRAINAGE: ("Drainage", "Water & Sewer"),
-    ReportCategory.PUBLIC_PROPERTY: ("Parks", "Public Property"),
-}
-
-
 def _route_department(
     db: Session, *, category: ReportCategory
 ) -> Department | None:
-    hints = _CATEGORY_DEPARTMENT_HINTS.get(category)
-    if not hints:
-        return None
-    stmt = (
-        select(Department)
-        .where(
-            Department.is_active.is_(True),
-            Department.name.in_(hints),
-        )
-        .limit(1)
-    )
-    return db.execute(stmt).scalar_one_or_none()
+    """Compat shim: delegate to :mod:`routing_service` for category->dept."""
+    return routing_service.suggest_department(db, category=category)
 
 
 def create_report(
@@ -137,6 +131,27 @@ def create_report(
     db.add(report)
     db.flush()  # we need report.id for the history and photo keys
 
+    # Spam / junk / abuse filter. Non-fatal: a filter failure must not block a
+    # genuine citizen. High-confidence junk is auto-rejected (recorded as a
+    # rejected report so an admin can still audit a false positive); the
+    # borderline band is kept but flagged for review.
+    auto_rejected = False
+    try:
+        verdict = spam_filter_service.assess_text(
+            payload.title, payload.description
+        )
+        if verdict.score > 0:
+            report.spam_score = verdict.score
+            report.spam_reason = verdict.reason
+        if verdict.is_spam:
+            report.status = ReportStatus.REJECTED
+            report.spam_flagged = True
+            auto_rejected = True
+        elif verdict.is_flagged:
+            report.spam_flagged = True
+    except Exception as exc:  # noqa: BLE001 - never block submission
+        logger.warning("Spam filter skipped: %s", type(exc).__name__)
+
     # Optional AI: must not fail the submission.
     try:
         suggestion = ai_service.suggest_category(
@@ -150,55 +165,88 @@ def create_report(
             "AI category step skipped: %s", type(exc).__name__
         )
 
-    # Duplicate detection is also non-fatal.
+    # Duplicate detection + incident clustering. Non-fatal; the submission
+    # must land even if the clustering pass raises.
     try:
-        matches = duplicate_detection_service.find_duplicates(
-            db,
-            latitude=payload.latitude,
-            longitude=payload.longitude,
-            title=payload.title,
-            description=payload.description,
-            category=payload.category,
-            exclude_report_id=report.id,
-            limit=1,
-        )
-        if matches:
-            top = matches[0]
-            report.duplicate_score = top.score
-            report.duplicate_of_report_id = top.report.id
+        incident_cluster_service.attach_to_cluster(db, report=report)
+        if report.duplicate_of_report_id is None:
+            # Clustering did not fire; still record the best duplicate score
+            # for the admin triage list.
+            matches = duplicate_detection_service.find_duplicates(
+                db,
+                latitude=payload.latitude,
+                longitude=payload.longitude,
+                title=payload.title,
+                description=payload.description,
+                category=payload.category,
+                exclude_report_id=report.id,
+                limit=1,
+            )
+            if matches:
+                top = matches[0]
+                report.duplicate_score = top.score
+                report.duplicate_of_report_id = top.report.id
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "Duplicate scan skipped: %s", type(exc).__name__
+            "Duplicate / cluster scan skipped: %s", type(exc).__name__
         )
 
-    # Audit entry for the opening event.
-    db.add(
-        StatusHistory(
+    # Audit entry for the opening event. An auto-rejected report opens
+    # directly in the rejected state with the spam reason on the record.
+    if auto_rejected:
+        db.add(
+            StatusHistory(
+                report_id=report.id,
+                old_status=None,
+                new_status=ReportStatus.REJECTED,
+                changed_by_id=actor.id,
+                note=(
+                    "Auto-rejected by spam filter: "
+                    f"{report.spam_reason or 'flagged as junk/abuse.'}"
+                ),
+            )
+        )
+        notification_service.create_notification(
+            db,
+            user_id=actor.id,
+            notification_type=NotificationType.REJECTED,
+            title="Report not accepted",
+            message=(
+                f"Your report #{report.id} was automatically rejected because "
+                "it did not look like a genuine neighborhood issue. If this is "
+                "a mistake, please resubmit with a clear photo and details."
+            ),
             report_id=report.id,
-            old_status=None,
-            new_status=ReportStatus.SUBMITTED,
-            changed_by_id=actor.id,
-            note="Report submitted.",
         )
-    )
-
-    notification_service.create_notification(
-        db,
-        user_id=actor.id,
-        notification_type=NotificationType.REPORT_SUBMITTED,
-        title="Report submitted",
-        message=f"Your report #{report.id} has been received.",
-        report_id=report.id,
-    )
+    else:
+        db.add(
+            StatusHistory(
+                report_id=report.id,
+                old_status=None,
+                new_status=ReportStatus.SUBMITTED,
+                changed_by_id=actor.id,
+                note="Report submitted.",
+            )
+        )
+        notification_service.create_notification(
+            db,
+            user_id=actor.id,
+            notification_type=NotificationType.REPORT_SUBMITTED,
+            title="Report submitted",
+            message=f"Your report #{report.id} has been received.",
+            report_id=report.id,
+        )
 
     db.commit()
     db.refresh(report)
     logger.info(
-        "Report created id=%s citizen=%s category=%s priority=%s",
+        "Report created id=%s citizen=%s category=%s priority=%s status=%s spam=%.2f",
         report.id,
         actor.id,
         report.category.value,
         report.priority.value,
+        report.status.value,
+        report.spam_score or 0.0,
     )
     return report
 
@@ -235,9 +283,19 @@ def _apply_filters(
     date_from: datetime | None,
     date_to: datetime | None,
     bbox: tuple[float, float, float, float] | None,
+    search: str | None = None,
 ) -> Select:
     if status is not None:
         stmt = stmt.where(Report.status == status)
+    if search:
+        pattern = f"%{search.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Report.title.ilike(pattern),
+                Report.description.ilike(pattern),
+                Report.location_text.ilike(pattern),
+            )
+        )
     if category is not None:
         stmt = stmt.where(Report.category == category)
     if priority is not None:
@@ -279,6 +337,7 @@ def list_reports(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     bbox: tuple[float, float, float, float] | None = None,
+    search: str | None = None,
     sort_by: str | None = None,
     descending: bool = True,
 ) -> tuple[Sequence[Report], int, dict[int, int]]:
@@ -294,6 +353,7 @@ def list_reports(
         date_from=date_from,
         date_to=date_to,
         bbox=bbox,
+        search=search,
     )
     count_stmt = _apply_filters(
         select(func.count()).select_from(Report),
@@ -306,16 +366,33 @@ def list_reports(
         date_from=date_from,
         date_to=date_to,
         bbox=bbox,
+        search=search,
     )
 
-    column = SORTABLE_FIELDS.get(sort_by or DEFAULT_SORT_FIELD)
+    sort_key = sort_by or DEFAULT_SORT_FIELD
+    column = SORTABLE_FIELDS.get(sort_key)
     if column is None:
         column = SORTABLE_FIELDS[DEFAULT_SORT_FIELD]
+        sort_key = DEFAULT_SORT_FIELD
     order = column.desc() if descending else column.asc()  # type: ignore[union-attr]
+
+    # Compose a stable, intuitive order for admin triage:
+    # priority (urgent → low) first, then the chosen column, then id as the
+    # final tiebreaker. When the client already sorts by priority, do not
+    # repeat it; fall back to created_at desc so same-priority items are
+    # grouped newest-first.
+    order_clauses: list[object] = []
+    if sort_key == "priority":
+        order_clauses.append(order)
+        order_clauses.append(Report.created_at.desc())
+    else:
+        order_clauses.append(_PRIORITY_RANK.desc())
+        order_clauses.append(order)
+    order_clauses.append(Report.id.desc())
 
     items = (
         db.execute(
-            base.order_by(order, Report.id.desc()).offset(offset).limit(limit)
+            base.order_by(*order_clauses).offset(offset).limit(limit)
         )
         .scalars()
         .all()

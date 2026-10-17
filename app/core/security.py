@@ -14,6 +14,7 @@ fact.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Final
 
@@ -30,8 +31,12 @@ logger = get_logger(__name__)
 __all__ = [
     "ALGORITHM",
     "TOKEN_TYPE_ACCESS",
+    "TOKEN_TYPE_PASSWORD_RESET",
     "create_access_token",
     "decode_access_token",
+    "create_password_reset_token",
+    "decode_password_reset_token",
+    "password_hash_fingerprint",
     "hash_password",
     "verify_password",
     "needs_rehash",
@@ -42,9 +47,11 @@ __all__ = [
 #: both issues and validates the tokens.
 ALGORITHM: Final[str] = "HS256"
 
-#: Value of the ``type`` claim. Validated on decode so that a token minted for
-#: another purpose can never be replayed as an access token.
+#: Values of the ``type`` claim. Validated on decode so that a token minted for
+#: one purpose can never be replayed for another (an access token used as a
+#: reset token, say).
 TOKEN_TYPE_ACCESS: Final[str] = "access"
+TOKEN_TYPE_PASSWORD_RESET: Final[str] = "password_reset"
 
 
 # ---------------------------------------------------------------------------
@@ -182,3 +189,104 @@ def decode_access_token(token: str, *, settings: Settings | None = None) -> int:
     except (TypeError, ValueError):
         logger.info("Rejected a token with a non-numeric subject")
         raise AuthenticationError("Could not validate credentials.") from None
+
+
+# ---------------------------------------------------------------------------
+# Single-purpose links (password reset, email verification)
+# ---------------------------------------------------------------------------
+# These tokens travel in a URL and are consumed by anonymous endpoints, so they
+# differ from access tokens in two ways:
+#   * ``decode_*`` returns ``None`` on any problem instead of raising. The
+#     calling service decides the HTTP status (a dead reset link is a 400, not
+#     the 401 an access-token failure warrants).
+#   * The ``type`` claim is checked strictly, so the three token families can
+#     never be swapped for one another.
+def password_hash_fingerprint(password_hash: str) -> str:
+    """A short, non-reversible marker tying a reset token to one password.
+
+    Embedding it lets a reset token self-invalidate the moment the password
+    changes: once the hash differs, the stored fingerprint no longer matches,
+    so a used (or stale) link cannot reset the password a second time. It is a
+    digest of an already-irreversible Argon2 hash, so it exposes nothing.
+    """
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
+
+
+def create_password_reset_token(
+    user_id: int,
+    password_hash: str,
+    *,
+    settings: Settings | None = None,
+    expires_delta: timedelta | None = None,
+) -> str:
+    """Mint a signed, single-use password-reset token for ``user_id``.
+
+    The token carries a fingerprint of the current password hash so that it is
+    invalidated automatically once the password is changed.
+    """
+    settings = settings or get_settings()
+    now = datetime.now(timezone.utc)
+    lifetime = expires_delta or timedelta(
+        minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+    )
+    payload: dict[str, Any] = {
+        "sub": str(user_id),
+        "iat": now,
+        "exp": now + lifetime,
+        "type": TOKEN_TYPE_PASSWORD_RESET,
+        "pwf": password_hash_fingerprint(password_hash),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_password_reset_token(
+    token: str, *, settings: Settings | None = None
+) -> tuple[int, str] | None:
+    """Validate a reset token and return ``(user_id, password_fingerprint)``.
+
+    Returns ``None`` for any failure - bad signature, expiry, wrong ``type`` or
+    a malformed subject - so the caller can answer with a single, enumeration-
+    safe "this link is invalid or has expired" message. The caller must still
+    compare the returned fingerprint against the user's *current* password hash
+    to reject a link that has already been used.
+    """
+    payload = _decode_link_token(token, TOKEN_TYPE_PASSWORD_RESET, settings=settings)
+    if payload is None:
+        return None
+    fingerprint = payload.get("pwf")
+    subject = payload.get("sub")
+    if not isinstance(fingerprint, str):
+        return None
+    try:
+        return int(subject), fingerprint
+    except (TypeError, ValueError):
+        return None
+
+
+def _decode_link_token(
+    token: str, expected_type: str, *, settings: Settings | None = None
+) -> dict[str, Any] | None:
+    """Decode and type-check a single-purpose link token.
+
+    Backs the password-reset decoder. Returns the claims on success, ``None``
+    on any JWT error or a ``type`` mismatch.
+    """
+    settings = settings or get_settings()
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={"require": ["exp", "sub"]},
+        )
+    except jwt.InvalidTokenError:
+        logger.info("Rejected an invalid %s token", expected_type)
+        return None
+    if payload.get("type") != expected_type:
+        logger.info(
+            "Rejected a %r token where %r was expected",
+            payload.get("type"),
+            expected_type,
+        )
+        return None
+    return payload

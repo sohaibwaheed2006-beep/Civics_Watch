@@ -813,7 +813,14 @@ npm run preview
 │   ├── services/               # Typed services (auth, reports, departments, users, notifications)
 │   ├── test/                   # Vitest tests (auth, reports, utils, components)
 │   └── types/                  # TypeScript interface declarations
-├── API_INTEGRATION_NOTES.md    # Detailed API contract documentation
+├── docs/                       # Project documentation
+│   ├── API_INTEGRATION_NOTES.md    # Detailed API contract documentation
+│   ├── DEVELOPER_2_INTEGRATION.md  # Report-domain integration notes
+│   └── DEVELOPER_2_DEPENDENCIES.md # Dependency map for Developer 2
+├── tools/
+│   └── share/                  # Cloudflare tunnel launcher for sharing dev builds
+│       ├── start-share.bat
+│       └── cloudflared.exe     # (gitignored binary, downloaded locally)
 ├── package.json
 ├── tailwind.config.js
 ├── tsconfig.json

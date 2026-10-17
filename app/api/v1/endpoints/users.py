@@ -29,7 +29,7 @@ from fastapi import APIRouter, Path, Query, status
 from app.api.deps import AdminUser, DbSession, PaginationDep
 from app.core.enums import UserRole
 from app.schemas.common import ErrorResponse, Page
-from app.schemas.user import UserRead, UserRoleUpdate
+from app.schemas.user import AdminUserUpdate, UserRead, UserRoleUpdate, WorkerCreate
 from app.services import user_service
 
 router = APIRouter()
@@ -55,7 +55,7 @@ _NOT_FOUND: dict[int | str, dict[str, object]] = {
 
 
 @router.get(
-    "/",
+    "",
     response_model=Page[UserRead],
     status_code=status.HTTP_200_OK,
     summary="List users",
@@ -107,6 +107,37 @@ def list_users(
         page_size=pagination.page_size,
         total_items=total,
     )
+
+
+@router.post(
+    "/workers",
+    response_model=UserRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a field-worker account",
+    responses={
+        **_ADMIN_ERRORS,
+        status.HTTP_404_NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "The target department does not exist.",
+        },
+        status.HTTP_409_CONFLICT: {
+            "model": ErrorResponse,
+            "description": "Email already registered, or the department is inactive.",
+        },
+    },
+    description=(
+        "Creates a worker account attached to a department. Administrators "
+        "only.\n\nThe role is fixed to `worker` and the account is created "
+        "already active and verified, so the worker can sign in immediately."
+    ),
+)
+def create_worker(
+    db: DbSession,
+    admin: AdminUser,
+    payload: WorkerCreate,
+) -> UserRead:
+    worker = user_service.create_worker(db, actor=admin, payload=payload)
+    return UserRead.model_validate(worker)
 
 
 @router.get(
@@ -170,6 +201,42 @@ def update_user_role(
     user_id: Annotated[int, Path(ge=1, description="Target user ID.")],
 ) -> UserRead:
     user = user_service.update_user_role(
+        db, actor=admin, user_id=user_id, payload=payload
+    )
+    return UserRead.model_validate(user)
+
+
+@router.patch(
+    "/{user_id}",
+    response_model=UserRead,
+    status_code=status.HTTP_200_OK,
+    summary="Edit a user (admin)",
+    responses={
+        **_ADMIN_ERRORS,
+        **_NOT_FOUND,
+        status.HTTP_409_CONFLICT: {
+            "model": ErrorResponse,
+            "description": (
+                "The change would remove the last active administrator, or "
+                "assign an inactive department."
+            ),
+        },
+    },
+    description=(
+        "Updates a user's profile (`full_name`, `phone`), account status "
+        "(`is_active`) and optionally `role`/`department_id`. Administrators "
+        "only.\n\nThe same safeguards as the role endpoint apply: you cannot "
+        "change your own role or deactivate your own account, and the last "
+        "active administrator cannot be demoted or deactivated."
+    ),
+)
+def update_user(
+    db: DbSession,
+    admin: AdminUser,
+    payload: AdminUserUpdate,
+    user_id: Annotated[int, Path(ge=1, description="Target user ID.")],
+) -> UserRead:
+    user = user_service.admin_update_user(
         db, actor=admin, user_id=user_id, payload=payload
     )
     return UserRead.model_validate(user)

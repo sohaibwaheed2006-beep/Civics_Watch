@@ -227,14 +227,24 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
               {report.resolutionNote}
             </p>
             {report.resolutionEvidenceUrl && (
-              <a
-                href={report.resolutionEvidenceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-block text-xs font-semibold text-emerald-700 underline"
-              >
-                View Attached Completion Evidence &rarr;
-              </a>
+              <div className="mt-3">
+                <p className="text-[11px] font-semibold text-emerald-800 mb-1.5">
+                  Verified Completion Photo Evidence:
+                </p>
+                <div className="max-w-md aspect-video rounded-xl overflow-hidden border border-emerald-300 shadow-xs">
+                  <img
+                    src={report.resolutionEvidenceUrl}
+                    alt="Work completion evidence"
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      if (!img.src.includes('/images/reports/railing-repaired.jpg')) {
+                        img.src = '/images/reports/railing-repaired.jpg';
+                      }
+                    }}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -295,7 +305,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
           <CardTitle className="text-base">Citizen Problem Photos</CardTitle>
         </CardHeader>
         <CardContent>
-          <PhotoGallery photos={report.photos} />
+          <PhotoGallery photos={report.photos} category={report.category} />
         </CardContent>
       </Card>
 

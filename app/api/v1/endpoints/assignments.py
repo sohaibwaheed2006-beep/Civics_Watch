@@ -35,7 +35,6 @@ _AUTH_ERRORS: dict[int | str, dict[str, object]] = {
     responses={
         **_AUTH_ERRORS,
         status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
-        status.HTTP_409_CONFLICT: {"model": ErrorResponse},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorResponse},
     },
     tags=["Assignments"],
@@ -53,6 +52,8 @@ def assign_worker(
         actor=admin,
         worker_id=payload.worker_id,
         notes=payload.notes,
+        priority=payload.priority,
+        deadline_at=payload.deadline,
     )
     db.commit()
     db.refresh(assignment)

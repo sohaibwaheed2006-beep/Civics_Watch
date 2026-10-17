@@ -5,7 +5,8 @@ import { Card } from '@/components/ui/card';
 import { StatusBadge } from '@/components/data-display/status-badge';
 import { PriorityBadge } from '@/components/data-display/priority-badge';
 import { formatCategory, formatDate } from '@/lib/formatters';
-import { MapPin, ThumbsUp, Calendar, ArrowRight, ImageIcon } from 'lucide-react';
+import { MapPin, ThumbsUp, Calendar, ArrowRight, Camera } from 'lucide-react';
+import { getCategoryCoverImage, handleImageFallback } from '@/lib/category-images';
 
 export interface ReportCardProps {
   report: Report;
@@ -14,32 +15,50 @@ export interface ReportCardProps {
 
 export const ReportCard: React.FC<ReportCardProps> = ({ report, detailUrl }) => {
   const hasPhoto = report.photos && report.photos.length > 0;
+  const photoUrl = hasPhoto ? report.photos[0].url : getCategoryCoverImage(report.category);
 
   return (
     <Card hoverEffect className="flex flex-col justify-between group overflow-hidden border-slate-200/90 hover:border-teal-300">
       <div>
-        {/* Header photo or placeholder banner */}
-        <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-4 bg-slate-100 overflow-hidden border-b border-slate-100">
-          {hasPhoto ? (
-            <img
-              src={report.photos[0].url}
-              alt={report.title}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              loading="lazy"
-            />
-          ) : (
-            <div className="h-full w-full flex flex-col items-center justify-center text-slate-400 bg-gradient-to-br from-slate-50 to-slate-100">
-              <ImageIcon className="h-8 w-8 text-slate-300 mb-1" />
-              <span className="text-xs font-medium text-slate-400">No photo uploaded</span>
-            </div>
-          )}
+        {/* Header photo with category visual fallback */}
+        <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-4 bg-slate-900/10 overflow-hidden border-b border-slate-100">
+          <img
+            src={photoUrl}
+            alt={report.title}
+            onError={(e) => {
+              const target = e.currentTarget as HTMLImageElement;
+              const catCover = getCategoryCoverImage(report.category);
+              if (target.src !== catCover) {
+                target.src = catCover;
+              } else {
+                handleImageFallback(e, report.category);
+              }
+            }}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
 
+          {/* Badges Overlay */}
           <div className="absolute top-3 left-3 flex items-center gap-1.5 shadow-sm">
             <StatusBadge status={report.status} size="sm" />
           </div>
           <div className="absolute top-3 right-3 shadow-sm">
             <PriorityBadge priority={report.priority} size="sm" />
           </div>
+
+          {/* Multiple photos or fallback indicator */}
+          {hasPhoto && report.photos.length > 1 && (
+            <div className="absolute bottom-2 right-2 bg-slate-900/75 backdrop-blur-xs text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Camera className="h-3 w-3" />
+              <span>+{report.photos.length - 1}</span>
+            </div>
+          )}
+
+          {!hasPhoto && (
+            <div className="absolute bottom-2 right-2 bg-slate-900/60 backdrop-blur-xs text-slate-200 text-[10px] font-medium px-2 py-0.5 rounded-full">
+              Category visual
+            </div>
+          )}
         </div>
 
         {/* Category tag */}

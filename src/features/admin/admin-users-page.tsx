@@ -18,6 +18,7 @@ import { ErrorPanel } from '@/components/ui/error-panel';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Pagination } from '@/components/data-display/pagination';
 import { useDebounce } from '@/hooks/use-debounce';
+import { Avatar } from '@/components/ui/avatar';
 import {
   UserPlus,
   ShieldAlert,
@@ -87,6 +88,10 @@ export const AdminUsersPage: React.FC = () => {
     onSuccess: (newWorker) => {
       toast.success(`Technician account created for "${newWorker.fullName}".`);
       queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
+      // Refresh the department lists too so the new hire is reflected in the
+      // department's "Active Staff" count immediately, without a manual reload.
+      queryClient.invalidateQueries({ queryKey: ['departments-admin-list'] });
+      queryClient.invalidateQueries({ queryKey: ['departments-list'] });
       setIsCreateWorkerOpen(false);
       resetWorker();
     },
@@ -225,9 +230,12 @@ export const AdminUsersPage: React.FC = () => {
                   <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                          {u.fullName[0].toUpperCase()}
-                        </div>
+                        <Avatar
+                          alt={u.fullName}
+                          fallback={u.fullName}
+                          role={u.role}
+                          size="sm"
+                        />
                         <div>
                           <p className="font-semibold text-slate-900">{u.fullName}</p>
                           <p className="text-[11px] text-slate-500">{u.email}</p>

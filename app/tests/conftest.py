@@ -45,6 +45,10 @@ os.environ["MAX_UPLOAD_SIZE_MB"] = "5"
 # Override whatever .env holds: never touch a real database from a test.
 os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{_TEST_DB_PATH.as_posix()}"
 os.environ["DB_ECHO"] = "false"
+# Pin Gemini off for the suite. A developer may have a real key in `.env`,
+# and we don't want tests to make outbound HTTP calls or depend on the
+# model's output.
+os.environ["GEMINI_API_KEY"] = ""
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

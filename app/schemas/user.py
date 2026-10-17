@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.core.enums import UserRole
 from app.schemas.common import APIModel
@@ -20,8 +20,24 @@ __all__ = [
     "UserRead",
     "UserProfileUpdate",
     "UserRoleUpdate",
+    "WorkerCreate",
+    "AdminUserUpdate",
     "FullName",
     "Phone",
+    "Password",
+]
+
+#: Minimum accepted password length, kept in step with the auth schemas.
+MIN_PASSWORD_LENGTH = 8
+
+Password = Annotated[
+    str,
+    Field(
+        min_length=MIN_PASSWORD_LENGTH,
+        max_length=128,
+        description=f"At least {MIN_PASSWORD_LENGTH} characters.",
+        examples=["correct-horse-battery"],
+    ),
 ]
 
 
@@ -122,3 +138,67 @@ class UserRoleUpdate(APIModel):
             "null to clear the assignment. Omit to leave it unchanged."
         ),
     )
+
+
+class WorkerCreate(APIModel):
+    """Body for ``POST /users/workers``. Admin only.
+
+    Creates a field-worker account directly, with a department attached.
+    Unlike public registration, the role is fixed to ``worker`` and the
+    account is created already verified so the person can sign in immediately.
+    """
+
+    full_name: FullName
+    email: EmailStr = Field(
+        description="Email address. Normalized to lower case before storage.",
+        examples=["worker@example.com"],
+    )
+    password: Password
+    phone: Phone | None = Field(default=None, description="Optional contact number.")
+    department_id: int = Field(
+        ge=1, description="Department the worker belongs to. Must exist and be active."
+    )
+
+
+class AdminUserUpdate(APIModel):
+    """Body for ``PATCH /users/{user_id}``. Admin only.
+
+    Lets an administrator edit a user's profile and status in one call. Every
+    field is optional; an empty body is rejected. ``role``/``department_id``
+    go through the same safeguards as ``PATCH /users/{id}/role``.
+    """
+
+    full_name: FullName | None = Field(
+        default=None, description="New display name. Omit to leave unchanged."
+    )
+    phone: Phone | None = Field(
+        default=None,
+        description="New contact number. Send null to clear it, omit to leave unchanged.",
+    )
+    is_active: bool | None = Field(
+        default=None, description="Activate or deactivate the account."
+    )
+    role: UserRole | None = Field(
+        default=None, description="New role: citizen, admin or worker."
+    )
+    department_id: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Department to assign. Only meaningful for workers; send null to "
+            "clear it, omit to leave unchanged."
+        ),
+    )
+
+    @field_validator("full_name")
+    @classmethod
+    def _reject_blank_name(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("full_name must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def _require_at_least_one_field(self) -> Self:
+        if not self.model_fields_set:
+            raise ValueError("provide at least one field to update")
+        return self

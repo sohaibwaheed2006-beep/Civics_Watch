@@ -11,6 +11,7 @@ import { CardSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorPanel } from '@/components/ui/error-panel';
 import { formatCategory, formatDate } from '@/lib/formatters';
+import { getCategoryCoverImage, handleImageFallback } from '@/lib/category-images';
 import {
   ClipboardList,
   Clock,
@@ -46,8 +47,22 @@ export const WorkerDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Worker Greeting Banner */}
-      <div className="rounded-2xl bg-gradient-to-r from-amber-600 via-amber-700 to-slate-900 p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+      {/* Worker Greeting Banner with Field Operations Photo */}
+      <div className="rounded-2xl bg-gradient-to-r from-amber-900 via-amber-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-amber-800/40">
+        <img
+          src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80"
+          alt="Field Operations"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!img.src.includes('/images/hero/worker-hero.jpg')) {
+              img.src = '/images/hero/worker-hero.jpg';
+            } else {
+              img.style.display = 'none';
+            }
+          }}
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-25 mix-blend-screen pointer-events-none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-amber-950/80 via-amber-900/60 to-transparent pointer-events-none" />
         <div className="relative z-10 max-w-2xl space-y-3">
           <span className="inline-block rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-200 border border-amber-400/30">
             Field Technician Portal &bull; {user?.departmentName || 'Public Works'}
@@ -178,25 +193,51 @@ export const WorkerDashboard: React.FC = () => {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {urgentTasks.map((assignment) => (
-              <Card
-                key={assignment.id}
-                hoverEffect
-                className="flex flex-col justify-between border-slate-200/90 hover:border-amber-400"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <StatusBadge status={assignment.report.status} size="sm" />
-                    <PriorityBadge priority={assignment.report.priority} size="sm" />
-                  </div>
+            {urgentTasks.map((assignment) => {
+              const photoUrl =
+                assignment.report.photos && assignment.report.photos.length > 0
+                  ? assignment.report.photos[0].url
+                  : getCategoryCoverImage(assignment.report.category);
 
-                  <h3 className="text-sm font-semibold text-slate-900 line-clamp-1">
-                    {assignment.report.title}
-                  </h3>
+              return (
+                <Card
+                  key={assignment.id}
+                  hoverEffect
+                  className="flex flex-col justify-between group overflow-hidden border-slate-200/90 hover:border-amber-400"
+                >
+                  <div>
+                    {/* Card photo header */}
+                    <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-3 bg-slate-100 overflow-hidden border-b border-slate-100">
+                      <img
+                        src={photoUrl}
+                        alt={assignment.report.title}
+                        onError={(e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          const catCover = getCategoryCoverImage(assignment.report.category);
+                          if (target.src !== catCover) {
+                            target.src = catCover;
+                          } else {
+                            handleImageFallback(e, assignment.report.category);
+                          }
+                        }}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute top-2.5 left-2.5">
+                        <StatusBadge status={assignment.report.status} size="sm" />
+                      </div>
+                      <div className="absolute top-2.5 right-2.5">
+                        <PriorityBadge priority={assignment.report.priority} size="sm" />
+                      </div>
+                    </div>
 
-                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">
-                    {assignment.report.description}
-                  </p>
+                    <h3 className="text-sm font-semibold text-slate-900 group-hover:text-amber-700 transition-colors line-clamp-1">
+                      {assignment.report.title}
+                    </h3>
+
+                    <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                      {assignment.report.description}
+                    </p>
 
                   <div className="mt-3 space-y-1.5 text-xs text-slate-500 border-t border-slate-100 pt-2.5">
                     <div className="flex items-center gap-1.5">
@@ -228,8 +269,9 @@ export const WorkerDashboard: React.FC = () => {
                   </Link>
                 </div>
               </Card>
-            ))}
-          </div>
+            );
+          })}
+        </div>
         )}
       </div>
     </div>

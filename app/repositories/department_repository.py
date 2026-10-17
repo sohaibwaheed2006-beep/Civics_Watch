@@ -10,6 +10,7 @@ from typing import Sequence
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
+from app.core.enums import UserRole
 from app.models.department import Department
 from app.models.user import User
 
@@ -21,6 +22,7 @@ __all__ = [
     "list_departments",
     "count_departments",
     "count_assigned_users",
+    "active_worker_counts",
     "SORTABLE_FIELDS",
 ]
 
@@ -87,6 +89,34 @@ def count_assigned_users(db: Session, department_id: int) -> int:
         .where(User.department_id == department_id)
     )
     return int(db.execute(statement).scalar_one())
+
+
+def active_worker_counts(
+    db: Session, department_ids: Sequence[int] | None = None
+) -> dict[int, int]:
+    """Active-worker headcount per department, as ``{department_id: count}``.
+
+    Counts only users with the worker role that are still active, which is the
+    "Active Staff" figure the admin UI shows on each department card. Pass
+    ``department_ids`` to limit the aggregate to the departments on the current
+    page; omit it for every department. Departments with no workers are simply
+    absent from the map, so callers default a missing key to 0.
+    """
+    statement = (
+        select(User.department_id, func.count(User.id))
+        .where(
+            User.role == UserRole.WORKER,
+            User.is_active.is_(True),
+            User.department_id.is_not(None),
+        )
+        .group_by(User.department_id)
+    )
+    if department_ids is not None:
+        ids = list(department_ids)
+        if not ids:
+            return {}
+        statement = statement.where(User.department_id.in_(ids))
+    return {int(dept_id): int(count) for dept_id, count in db.execute(statement)}
 
 
 def _apply_filters(

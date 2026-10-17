@@ -64,6 +64,18 @@ export interface Report {
   resolutionNote?: string;
   resolutionEvidenceUrl?: string;
   duplicateCandidateId?: string;
+  // AI automation fields (populated by the backend when available)
+  aiCategory?: string;
+  aiConfidence?: number;
+  aiTitleSuggested?: string;
+  aiDescriptionSuggested?: string;
+  aiPrioritySuggested?: string;
+  duplicateScore?: number;
+  duplicateOfReportId?: number;
+  incidentClusterId?: number;
+  resolutionPhotoMatchScore?: number;
+  resolutionFlaggedForReview?: boolean;
+  resolutionReviewReason?: string;
 }
 
 export interface CreateReportPayload {

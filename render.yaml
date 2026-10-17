@@ -1,0 +1,58 @@
+# Render Blueprint for the FastAPI backend.
+#
+# How to use:
+#   1. Push this repo to GitHub (the branch that contains this file + app/).
+#   2. render.com -> New -> Blueprint -> select this repo.
+#   3. Render reads this file and creates the service, prompting you for every
+#      env var marked `sync: false` (those are the secrets / per-deploy values).
+#
+# Notes:
+#   - Free plan web services sleep after ~15 min idle and cold-start on the next
+#     request (first hit takes a few seconds). Fine for a demo / portfolio.
+#   - `alembic upgrade head` runs on each deploy to apply DB migrations. It is
+#     idempotent, so re-running is safe.
+services:
+  - type: web
+    name: nir-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Pin the Python runtime Render builds with.
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+
+      # Non-secret application settings.
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: PHOTO_STORAGE_BACKEND
+        value: supabase
+      - key: SUPABASE_STORAGE_BUCKET
+        value: report-photos
+
+      # JWT signing key — Render generates a strong random value for you.
+      - key: SECRET_KEY
+        generateValue: true
+
+      # ---- Secrets / per-deploy values: Render will PROMPT for each ----
+      # Supabase -> Project Settings -> Database -> Connection string ->
+      # "Transaction" pooler (port 6543). Prepend the driver:
+      #   postgresql+psycopg2://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+      - key: DATABASE_URL
+        sync: false
+      # https://<project-id>.supabase.co
+      - key: SUPABASE_URL
+        sync: false
+      # Supabase service-role (secret) key — server-side only, never in the frontend.
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      # Your deployed frontend origin, e.g. https://your-app.vercel.app
+      # (used for CORS and for links inside emails). No trailing slash.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false

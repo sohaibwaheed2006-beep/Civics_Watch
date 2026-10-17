@@ -23,14 +23,17 @@ export const reportStatuses = [
 export const reportPriorities = ['low', 'medium', 'high', 'urgent'] as const;
 
 export const createReportSchema = z.object({
+  // Title and description are optional: the AI fills them from the photo, and
+  // if it can't, sensible defaults are applied on submit. Only an upper bound
+  // is enforced so a manual entry stays within the backend's limits.
   title: z
     .string()
-    .min(5, 'Title must be at least 5 characters')
-    .max(100, 'Title cannot exceed 100 characters'),
+    .max(100, 'Title cannot exceed 100 characters')
+    .optional(),
   description: z
     .string()
-    .min(15, 'Please provide more details (minimum 15 characters)')
-    .max(2000, 'Description cannot exceed 2000 characters'),
+    .max(2000, 'Description cannot exceed 2000 characters')
+    .optional(),
   category: z.enum(reportCategories, {
     errorMap: () => ({ message: 'Please select a valid problem category' }),
   }),

@@ -14,6 +14,17 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Allow arbitrary hostnames so public tunnels (trycloudflare, loca.lt,
+    // ngrok, serveo, LAN IP) can reach the dev server without a 403.
+    allowedHosts: true,
+    // Proxy /api/v1 to the FastAPI backend so the browser only ever talks to
+    // the Vite origin. Tunneling just port 5173 is then sufficient.
+    proxy: {
+      '/api/v1': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+    },
   },
   test: {
     globals: true,

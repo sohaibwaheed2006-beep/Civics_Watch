@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
@@ -141,8 +142,73 @@ class Report(TimestampMixin, Base):
     ai_confidence: Mapped[float | None] = mapped_column(
         Float, nullable=True, doc="AI confidence score (0..1)."
     )
+    ai_title_suggested: Mapped[str | None] = mapped_column(
+        String(200), nullable=True, doc="Vision-generated title suggestion."
+    )
+    ai_description_suggested: Mapped[str | None] = mapped_column(
+        Text, nullable=True, doc="Vision-generated description suggestion."
+    )
+    ai_priority_suggested: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, doc="Vision-generated priority suggestion."
+    )
     duplicate_score: Mapped[float | None] = mapped_column(
         Float, nullable=True, doc="Best duplicate similarity found at submission."
+    )
+    incident_cluster_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        index=True,
+        doc=(
+            "Shared cluster id for reports that likely describe the same "
+            "real-world incident. The canonical report in a cluster is the "
+            "oldest one; all duplicate_of_report_id members share its value."
+        ),
+    )
+
+    resolution_photo_match_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        doc=(
+            "Gemini Vision score (0..1) comparing the worker's evidence "
+            "photo to the original complaint. Null if the check never ran."
+        ),
+    )
+    resolution_flagged_for_review: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+        doc=(
+            "True when the resolution-note quality check scored below the "
+            "configured threshold and the closure should be audited."
+        ),
+    )
+    resolution_review_reason: Mapped[str | None] = mapped_column(
+        String(400),
+        nullable=True,
+        doc="Short reason from the vision model, if the closure was flagged.",
+    )
+
+    spam_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        doc="Spam/junk likelihood (0..1) assessed at submission.",
+    )
+    spam_flagged: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+        index=True,
+        doc=(
+            "True when the report scored in the borderline spam band and "
+            "needs a human to confirm or dismiss it."
+        ),
+    )
+    spam_reason: Mapped[str | None] = mapped_column(
+        String(400),
+        nullable=True,
+        doc="Short reason from the spam filter, if scored above zero.",
     )
 
     deadline_at: Mapped[datetime | None] = mapped_column(

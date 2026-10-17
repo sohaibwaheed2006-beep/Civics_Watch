@@ -13,13 +13,16 @@ from typing import Annotated, Self
 from pydantic import EmailStr, Field, model_validator
 
 from app.schemas.common import APIModel
-from app.schemas.user import FullName, Phone
+from app.schemas.user import FullName, Phone, UserRead
 
 __all__ = [
     "RegisterRequest",
     "LoginRequest",
     "TokenResponse",
+    "AuthResponse",
     "ChangePasswordRequest",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
     "MIN_PASSWORD_LENGTH",
 ]
 
@@ -78,6 +81,22 @@ class TokenResponse(APIModel):
     )
 
 
+class AuthResponse(APIModel):
+    """Access token plus the authenticated user profile.
+
+    Login and register return this envelope so the client has both the bearer
+    token and the user record in a single round-trip.
+    """
+
+    access_token: str = Field(description="Signed JWT access token.")
+    token_type: str = Field(
+        default="bearer",
+        description="Scheme for the Authorization header: 'Bearer <token>'.",
+    )
+    expires_in: int = Field(description="Token lifetime in seconds.")
+    user: UserRead = Field(description="The authenticated user's profile.")
+
+
 class ChangePasswordRequest(APIModel):
     """Change the authenticated user's password.
 
@@ -97,3 +116,28 @@ class ChangePasswordRequest(APIModel):
         if self.current_password == self.new_password:
             raise ValueError("new_password must differ from current_password")
         return self
+
+
+class ForgotPasswordRequest(APIModel):
+    """Request a password-reset link by email.
+
+    The endpoint deliberately returns the same acknowledgement whether or not
+    the address is registered, so this request cannot be used to discover which
+    emails have accounts.
+    """
+
+    email: EmailStr = Field(
+        description="The email address to send a reset link to.",
+        examples=["ada@example.com"],
+    )
+
+
+class ResetPasswordRequest(APIModel):
+    """Set a new password using a token from a reset link."""
+
+    token: str = Field(
+        min_length=1,
+        max_length=2048,
+        description="The opaque token from the emailed reset link.",
+    )
+    new_password: Password = Field(description="The replacement password.")

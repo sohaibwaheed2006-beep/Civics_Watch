@@ -28,12 +28,20 @@ from fastapi import APIRouter, Path, Query, status
 
 from app.api.deps import AdminUser, CurrentUser, DbSession, PaginationDep
 from app.schemas.common import ErrorResponse, Page
+from app.repositories import department_repository
 from app.schemas.department import (
     DepartmentCreate,
     DepartmentRead,
     DepartmentUpdate,
 )
 from app.services import department_service
+
+
+def _with_worker_count(department: object, worker_count: int) -> DepartmentRead:
+    """Serialise a department, attaching its live active-worker headcount."""
+    return DepartmentRead.model_validate(department).model_copy(
+        update={"worker_count": worker_count}
+    )
 
 router = APIRouter()
 
@@ -54,7 +62,7 @@ _ADMIN_ERRORS: dict[int | str, dict[str, object]] = {
 
 
 @router.get(
-    "/",
+    "",
     response_model=Page[DepartmentRead],
     status_code=status.HTTP_200_OK,
     summary="List departments",
@@ -112,8 +120,13 @@ def list_departments(
         sort_by=pagination.sort_by,
         descending=pagination.descending,
     )
+    counts = department_repository.active_worker_counts(
+        db, [item.id for item in items]
+    )
     return Page[DepartmentRead].create(
-        items=[DepartmentRead.model_validate(item) for item in items],
+        items=[
+            _with_worker_count(item, counts.get(item.id, 0)) for item in items
+        ],
         page=pagination.page,
         page_size=pagination.page_size,
         total_items=total,
@@ -121,7 +134,7 @@ def list_departments(
 
 
 @router.post(
-    "/",
+    "",
     response_model=DepartmentRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create a department",
@@ -146,7 +159,8 @@ def create_department(
     department = department_service.create_department(
         db, actor=admin, payload=payload
     )
-    return DepartmentRead.model_validate(department)
+    # A brand-new department has no workers yet.
+    return _with_worker_count(department, 0)
 
 
 @router.patch(
@@ -187,4 +201,5 @@ def update_department(
     department = department_service.update_department(
         db, actor=admin, department_id=department_id, payload=payload
     )
-    return DepartmentRead.model_validate(department)
+    counts = department_repository.active_worker_counts(db, [department.id])
+    return _with_worker_count(department, counts.get(department.id, 0))

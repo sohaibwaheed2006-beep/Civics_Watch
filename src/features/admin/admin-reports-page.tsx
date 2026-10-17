@@ -23,6 +23,7 @@ export const AdminReportsPage: React.FC = () => {
   const [priority, setPriority] = useState<ReportPriority | 'all'>('all');
   const [departmentId, setDepartmentId] = useState<string | 'all'>('all');
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<'priority' | 'createdAt'>('priority');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const debouncedSearch = useDebounce(search, 300);
@@ -43,6 +44,7 @@ export const AdminReportsPage: React.FC = () => {
       priority,
       departmentId,
       page,
+      sortBy,
       sortOrder,
     ],
     queryFn: () =>
@@ -54,6 +56,7 @@ export const AdminReportsPage: React.FC = () => {
         departmentId,
         page,
         limit: 10,
+        sortBy,
         sortOrder,
       }),
   });
@@ -86,7 +89,8 @@ export const AdminReportsPage: React.FC = () => {
             Municipal Report Management
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Triage, assign, update, and audit all neighborhood issues across the city.
+            Triage, assign, update, and audit all neighborhood issues. Sorted by AI-ranked priority
+            (urgent → low) with submission dates for context.
           </p>
         </div>
 
@@ -154,15 +158,48 @@ export const AdminReportsPage: React.FC = () => {
                   <th className="py-3 px-4">ID & Title</th>
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Priority</th>
+                  <th
+                    className="py-3 px-4 cursor-pointer hover:text-slate-700"
+                    onClick={() => {
+                      if (sortBy === 'priority') {
+                        setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setSortBy('priority');
+                        setSortOrder('desc');
+                      }
+                    }}
+                    title="AI-ranked priority. Click to toggle order."
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>AI Priority</span>
+                      <ArrowUpDown className="h-3 w-3" />
+                      {sortBy === 'priority' && (
+                        <span className="text-[9px] font-bold text-teal-600">
+                          {sortOrder === 'desc' ? 'HIGH→LOW' : 'LOW→HIGH'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
                   <th className="py-3 px-4">Department & Worker</th>
                   <th
                     className="py-3 px-4 cursor-pointer hover:text-slate-700"
-                    onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    onClick={() => {
+                      if (sortBy === 'createdAt') {
+                        setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setSortBy('createdAt');
+                        setSortOrder('desc');
+                      }
+                    }}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Reported</span>
+                      <span>Submitted</span>
                       <ArrowUpDown className="h-3 w-3" />
+                      {sortBy === 'createdAt' && (
+                        <span className="text-[9px] font-bold text-teal-600">
+                          {sortOrder === 'desc' ? 'NEW→OLD' : 'OLD→NEW'}
+                        </span>
+                      )}
                     </div>
                   </th>
                   <th className="py-3 px-4 text-right">Actions</th>

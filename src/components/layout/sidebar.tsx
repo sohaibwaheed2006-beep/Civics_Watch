@@ -17,6 +17,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Avatar } from '@/components/ui/avatar';
 
 export interface SidebarProps {
   isCollapsed: boolean;
@@ -204,15 +205,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onCloseMobile }) 
       </nav>
 
       {/* Footer Role Card */}
-      {!isCollapsed && user && (
+      {user && (
         <div className="p-3 border-t border-slate-100">
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3">
-            <p className="text-xs font-semibold text-slate-800 truncate">{user.fullName}</p>
-            <p className="text-[11px] text-slate-500 capitalize">{user.role} role</p>
-            {user.departmentName && (
-              <p className="text-[10px] text-teal-700 font-medium truncate mt-1">
-                {user.departmentName}
-              </p>
+          <div
+            className={cn(
+              'rounded-xl bg-slate-50 border border-slate-200/80 p-2.5 flex items-center gap-2.5',
+              isCollapsed && 'justify-center p-2'
+            )}
+            title={isCollapsed ? `${user.fullName} (${user.role})` : undefined}
+          >
+            <Avatar
+              alt={user.fullName}
+              fallback={user.fullName}
+              role={user.role}
+              size="sm"
+            />
+            {!isCollapsed && (
+              <div className="overflow-hidden min-w-0">
+                <p className="text-xs font-semibold text-slate-800 truncate">{user.fullName}</p>
+                <p className="text-[10px] text-slate-500 capitalize leading-tight">{user.role} role</p>
+                {user.departmentName && (
+                  <p className="text-[9px] text-teal-700 font-medium truncate mt-0.5">
+                    {user.departmentName}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -82,7 +82,11 @@ def _to_summary(report, vote_count: int) -> ReportSummary:
         longitude=report.longitude,
         citizen_id=report.citizen_id,
         department_id=report.department_id,
+        department_name=report.department.name if report.department else None,
         assigned_worker_id=report.assigned_worker_id,
+        assigned_worker_name=(
+            report.assigned_worker.full_name if report.assigned_worker else None
+        ),
         created_at=report.created_at,
         updated_at=report.updated_at,
         deadline_at=report.deadline_at,
@@ -103,16 +107,32 @@ def _to_read(report, vote_count: int) -> ReportRead:
         longitude=report.longitude,
         location_text=report.location_text,
         citizen_id=report.citizen_id,
+        citizen_name=report.citizen.full_name if report.citizen else None,
+        citizen_email=report.citizen.email if report.citizen else None,
         department_id=report.department_id,
+        department_name=report.department.name if report.department else None,
         assigned_worker_id=report.assigned_worker_id,
+        assigned_worker_name=(
+            report.assigned_worker.full_name if report.assigned_worker else None
+        ),
         created_at=report.created_at,
         updated_at=report.updated_at,
         deadline_at=report.deadline_at,
         resolved_at=report.resolved_at,
         ai_category=report.ai_category,
         ai_confidence=report.ai_confidence,
+        ai_title_suggested=report.ai_title_suggested,
+        ai_description_suggested=report.ai_description_suggested,
+        ai_priority_suggested=report.ai_priority_suggested,
         duplicate_score=report.duplicate_score,
         duplicate_of_report_id=report.duplicate_of_report_id,
+        incident_cluster_id=report.incident_cluster_id,
+        resolution_photo_match_score=report.resolution_photo_match_score,
+        resolution_flagged_for_review=report.resolution_flagged_for_review,
+        resolution_review_reason=report.resolution_review_reason,
+        spam_score=report.spam_score,
+        spam_flagged=report.spam_flagged,
+        spam_reason=report.spam_reason,
         vote_count=vote_count,
     )
 
@@ -153,6 +173,14 @@ def list_reports(
     date_from: Annotated[datetime | None, Query()] = None,
     date_to: Annotated[datetime | None, Query()] = None,
     bbox: Bbox = None,
+    search: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            max_length=255,
+            description="Case-insensitive match on title, description or location.",
+        ),
+    ] = None,
 ) -> Page[ReportSummary]:
     role = UserRole(current_user.role)
     # Workers see their own queue by default; admins see everything.
@@ -175,6 +203,7 @@ def list_reports(
         date_from=date_from,
         date_to=date_to,
         bbox=_parse_bbox(bbox),
+        search=search,
         sort_by=pagination.sort_by,
         descending=pagination.descending,
     )
@@ -239,11 +268,16 @@ def list_map(
     return [
         ReportMapMarker(
             id=r.id,
+            title=r.title,
             category=r.category,
             status=r.status,
             priority=r.priority,
             latitude=r.latitude,
             longitude=r.longitude,
+            location_text=r.location_text,
+            description=r.description,
+            assigned_worker_id=r.assigned_worker_id,
+            created_at=r.created_at,
         )
         for r in items
     ]

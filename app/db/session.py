@@ -42,8 +42,8 @@ def get_engine() -> Engine:
     """Build (once) and return the application engine.
 
     ``pool_pre_ping`` issues a cheap liveness check before a pooled connection
-    is handed out, which is what prevents the classic "MySQL server has gone
-    away" error after an idle period.
+    is handed out, which prevents a stale connection to Supabase's pooler from
+    being handed out after an idle period.
 
     Takes no arguments on purpose. An ``lru_cache`` keyed on a settings
     argument would build a *separate* engine for ``get_engine()`` and

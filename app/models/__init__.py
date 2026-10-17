@@ -20,9 +20,11 @@ from app.models.department import DEFAULT_SLA_HOURS, Department
 from app.models.notification import Notification
 from app.models.report import Report
 from app.models.report_photo import ReportPhoto
+from app.models.review import Review
 from app.models.status_history import StatusHistory
 from app.models.user import User
 from app.models.vote import Vote
+from app.models.worker_bonus import WorkerBonus
 
 __all__ = [
     "Assignment",
@@ -35,8 +37,10 @@ __all__ = [
     "ReportPhoto",
     "ReportPriority",
     "ReportStatus",
+    "Review",
     "StatusHistory",
     "User",
     "UserRole",
     "Vote",
+    "WorkerBonus",
 ]

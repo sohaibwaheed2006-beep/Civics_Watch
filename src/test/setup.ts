@@ -26,7 +26,7 @@ Object.defineProperty(window, 'localStorage', {
   writable: true,
 });
 
-Object.defineProperty(global, 'localStorage', {
+Object.defineProperty(globalThis, 'localStorage', {
   value: localStorageMock,
   writable: true,
 });
@@ -47,12 +47,12 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
+(globalThis as any).ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
 };
 
 // Mock Leaflet
-global.URL.createObjectURL = () => 'blob:mock-url';
-global.URL.revokeObjectURL = () => {};
+(globalThis as any).URL.createObjectURL = () => 'blob:mock-url';
+(globalThis as any).URL.revokeObjectURL = () => {};

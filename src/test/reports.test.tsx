@@ -65,7 +65,7 @@ describe('Mock Backend Adapter State Operations', () => {
     const reports = await MockBackendAdapter.getReportsList();
     const target = reports.data[0];
     const initialUpvotes = target.upvotesCount;
-
+    expect(typeof initialUpvotes).toBe('number');
     const res = await MockBackendAdapter.toggleUpvote(target.id, citizen);
     expect(typeof res.upvotesCount).toBe('number');
   });
