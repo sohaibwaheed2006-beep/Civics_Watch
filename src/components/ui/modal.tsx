@@ -53,7 +53,7 @@ export const Modal: React.FC<ModalProps> = ({
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in"
+        className="fixed inset-0 bg-ink-900/50 backdrop-blur-sm animate-in fade-in"
         onClick={onClose}
       />
 

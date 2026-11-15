@@ -69,21 +69,17 @@ export const RegisterPage: React.FC = () => {
   return (
     <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden shadow-2xl border border-slate-200/90 bg-white my-6">
       {/* Visual Hero Panel (5 cols) */}
-      <div className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-8 text-white overflow-hidden bg-slate-950">
+      <div className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-8 text-white overflow-hidden bg-ink-950">
         <img
-          src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80"
-          alt="Community Neighborhood"
+          src="/images/auth/civic-city.jpg"
+          alt="Community neighborhood"
+          loading="lazy"
           onError={(e) => {
-            const img = e.currentTarget as HTMLImageElement;
-            if (!img.src.includes('/images/auth/civic-city.jpg')) {
-              img.src = '/images/auth/civic-city.jpg';
-            } else {
-              img.style.display = 'none';
-            }
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
           className="absolute inset-0 h-full w-full object-cover object-center opacity-40 mix-blend-screen"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-teal-950 via-slate-950/80 to-teal-900/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-teal-950 via-ink-950/80 to-teal-900/40" />
 
         <div className="relative z-10 space-y-2">
           <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-400/30">

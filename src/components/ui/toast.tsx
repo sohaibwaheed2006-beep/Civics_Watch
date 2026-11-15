@@ -28,14 +28,26 @@ export const ToastContainer: React.FC = () => {
           info: 'border-sky-200 bg-white',
         };
 
+        // Coloured strip down the left edge: the type reads at a glance.
+        const accents = {
+          success: 'bg-emerald-500',
+          error: 'bg-rose-500',
+          warning: 'bg-amber-500',
+          info: 'bg-sky-500',
+        };
+
         return (
           <div
             key={toast.id}
             className={cn(
-              'pointer-events-auto flex items-start gap-3 rounded-xl border p-4 shadow-lg transition-all animate-in slide-in-from-bottom-2',
+              'pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-2xl border p-4 pl-5 shadow-xl transition-all animate-in fade-in slide-in-from-bottom-2',
               borders[toast.type]
             )}
           >
+            <span
+              aria-hidden="true"
+              className={cn('absolute inset-y-0 left-0 w-1', accents[toast.type])}
+            />
             {icons[toast.type]}
             <div className="flex-1 min-w-0">
               {toast.title && (

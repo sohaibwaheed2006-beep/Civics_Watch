@@ -166,20 +166,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onCloseMobile }) 
       {/* Brand logo header */}
       <div className="flex h-16 items-center px-5 border-b border-slate-100">
         <Link to="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md shadow-teal-600/20">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-btn-primary">
             <Shield className="h-5 w-5" />
           </div>
           {!isCollapsed && (
             <div className="leading-none">
-              <span className="font-bold text-slate-900 text-sm tracking-tight">CivicWatch</span>
-              <p className="text-[10px] text-teal-700 font-semibold mt-0.5">Issue Reporter</p>
+              <span className="font-bold text-slate-900 text-[15px] tracking-tight">CivicWatch</span>
+              <p className="text-[10px] text-teal-700 font-semibold mt-1 uppercase tracking-[0.08em]">
+                Issue Reporter
+              </p>
             </div>
           )}
         </Link>
       </div>
 
       {/* Navigation links */}
-      <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto">
+      <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
+        {!isCollapsed && (
+          <p className="px-3 pt-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+            Menu
+          </p>
+        )}
         {navItems.map((item) => (
           <NavLink
             key={item.href}
@@ -187,9 +194,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onCloseMobile }) 
             onClick={onCloseMobile}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all group',
+                'relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-150 group',
+                isCollapsed && 'justify-center px-0',
                 isActive
-                  ? 'bg-teal-50 text-teal-800 font-semibold border border-teal-200/80 shadow-sm'
+                  ? 'bg-teal-50 text-teal-800 font-semibold shadow-xs ring-1 ring-inset ring-teal-200/70'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                 item.isSpecial &&
                   !isActive &&
@@ -198,8 +206,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onCloseMobile }) 
             }
             title={isCollapsed ? item.label : undefined}
           >
-            <div className="shrink-0">{item.icon}</div>
-            {!isCollapsed && <span className="truncate">{item.label}</span>}
+            {({ isActive }) => (
+              <>
+                {/* Accent bar marking the current section. */}
+                {isActive && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-teal-500"
+                  />
+                )}
+                <div
+                  className={cn(
+                    'shrink-0 transition-colors',
+                    isActive
+                      ? 'text-teal-600'
+                      : !item.isSpecial && 'text-slate-400 group-hover:text-slate-600'
+                  )}
+                >
+                  {item.icon}
+                </div>
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

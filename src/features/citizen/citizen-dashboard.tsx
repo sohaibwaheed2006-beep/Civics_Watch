@@ -61,17 +61,13 @@ export const CitizenDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Welcome Banner with Rich Hero Background Image */}
-      <div className="rounded-2xl bg-gradient-to-r from-teal-900 via-teal-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-teal-800/40">
+      <div className="rounded-2xl bg-gradient-to-r from-teal-900 via-teal-950 to-ink-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-teal-800/40">
         <img
-          src="https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80"
-          alt="Neighborhood Cityscape"
+          src="/images/hero/citizen-hero.jpg"
+          alt="Neighborhood cityscape"
+          loading="lazy"
           onError={(e) => {
-            const img = e.currentTarget as HTMLImageElement;
-            if (!img.src.includes('/images/hero/citizen-hero.jpg')) {
-              img.src = '/images/hero/citizen-hero.jpg';
-            } else {
-              img.style.display = 'none';
-            }
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
           className="absolute inset-0 h-full w-full object-cover object-center opacity-25 mix-blend-screen pointer-events-none"
         />
@@ -91,8 +87,9 @@ export const CitizenDashboard: React.FC = () => {
           <div className="pt-2 flex flex-wrap gap-3">
             <Link to="/citizen/reports/new">
               <Button
+                variant="outline"
                 size="lg"
-                className="bg-white text-teal-900 hover:bg-teal-50 font-semibold shadow-md"
+                className="border-transparent bg-white text-teal-900 hover:bg-teal-50 hover:border-transparent hover:text-teal-900 font-semibold shadow-md"
                 leftIcon={<PlusCircle className="h-5 w-5 text-teal-700" />}
               >
                 Report an Issue
@@ -144,7 +141,7 @@ export const CitizenDashboard: React.FC = () => {
                   onError={(e) => handleImageFallback(e, catKey)}
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-transparent flex items-end p-2.5">
+                <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-900/40 to-transparent flex items-end p-2.5">
                   <span className="text-xs font-semibold text-white leading-tight drop-shadow-xs group-hover:text-teal-200 transition-colors">
                     {label}
                   </span>

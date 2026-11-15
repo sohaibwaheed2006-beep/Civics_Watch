@@ -30,6 +30,7 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware
+from app.core.observability import init_sentry
 from app.db import registry  # noqa: F401  (registers models on Base.metadata)
 from app.db.session import check_database_connection, dispose_engine
 from app.schemas.common import ErrorResponse, HealthResponse
@@ -140,6 +141,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """
     settings = settings or get_settings()
     configure_logging(debug=settings.DEBUG)
+    # Initialise error tracking before anything else, so startup errors and
+    # every request are captured. No-op unless SENTRY_DSN is configured.
+    init_sentry(settings)
 
     docs_url = "/docs" if settings.docs_enabled else None
     redoc_url = "/redoc" if settings.docs_enabled else None

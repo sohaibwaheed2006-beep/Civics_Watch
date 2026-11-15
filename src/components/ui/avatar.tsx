@@ -24,7 +24,7 @@ const roleGradients: Record<Role | 'default', string> = {
   admin: 'bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white',
   worker: 'bg-gradient-to-tr from-amber-600 to-amber-700 text-white',
   citizen: 'bg-gradient-to-tr from-teal-600 to-teal-700 text-white',
-  default: 'bg-gradient-to-tr from-slate-600 to-slate-700 text-white',
+  default: 'bg-gradient-to-tr from-ink-600 to-ink-700 text-white',
 };
 
 export const Avatar: React.FC<AvatarProps> = ({

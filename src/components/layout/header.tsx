@@ -7,6 +7,7 @@ import { ROLE_DETAILS } from '@/lib/constants';
 import { Bell, Menu, User, LogOut, CheckCheck, ArrowRight, ShieldCheck, Shield, Wrench, Sparkles } from 'lucide-react';
 import { formatRelativeTime } from '@/lib/formatters';
 import { Avatar } from '@/components/ui/avatar';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { useToast } from '@/hooks/use-toast';
 
 export interface HeaderProps {
@@ -89,7 +90,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/90 px-4 sm:px-6 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-16 w-full shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/80 px-4 sm:px-6 backdrop-blur-xl">
+      {/* Soft brand line along the bottom edge of the header. */}
+      <span aria-hidden="true" className="brand-hairline pointer-events-none absolute inset-x-0 -bottom-px h-px" />
       {/* Left section: Hamburger & brand indicator */}
       <div className="flex items-center gap-3">
         {/* Mobile menu trigger */}
@@ -111,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
         </button>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-800 hidden sm:inline">
+          <span className="text-sm font-semibold tracking-tight text-slate-800 hidden sm:inline">
             Neighborhood Issue Reporter
           </span>
           {roleInfo && (
@@ -124,8 +127,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
         </div>
       </div>
 
-      {/* Right section: Notifications bell & user profile dropdown */}
+      {/* Right section: theme toggle, notifications bell & user profile dropdown */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* Light / dark theme switch */}
+        <ThemeToggle />
+
         {/* Notifications Popover */}
         <div className="relative">
           <button
@@ -142,7 +148,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
           </button>
 
           {isNotifOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200 bg-white shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200 bg-white shadow-xl dark:ring-1 dark:ring-inset dark:ring-edge z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 bg-slate-50/50">
                 <div className="flex items-center gap-2">
                   <h4 className="text-xs font-semibold text-slate-900">Notifications</h4>
@@ -224,7 +230,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onToggleMobileM
           </button>
 
           {isUserMenuOpen && (
-            <div className="absolute right-0 mt-2 w-60 rounded-xl border border-slate-200 bg-white shadow-xl z-50 py-1 animate-in fade-in slide-in-from-top-2">
+            <div className="absolute right-0 mt-2 w-60 rounded-2xl border border-slate-200 bg-white shadow-xl dark:ring-1 dark:ring-inset dark:ring-edge z-50 py-1 overflow-hidden animate-in fade-in slide-in-from-top-2">
               <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
                 <Avatar
                   alt={user?.fullName}

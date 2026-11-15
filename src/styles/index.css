@@ -4,13 +4,54 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
-    --primary: 173 80% 40%;
-    --primary-foreground: 0 0% 100%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --border: 214 32% 91%;
+    color-scheme: light;
+
+    /* Primary surface (maps to `bg-white` via tailwind.config.js). */
+    --surface: 255 255 255;
+
+    /* Elevation: every `shadow-*` utility reads these (tailwind.config.js). */
+    --shadow-color: 15 23 42;
+    --shadow-strength: 1;
+
+    /* Neutral ramp — true Tailwind slate values. Light mode is unchanged. */
+    --slate-50: 248 250 252;
+    --slate-100: 241 245 249;
+    --slate-200: 226 232 240;
+    --slate-300: 203 213 225;
+    --slate-400: 148 163 184;
+    --slate-500: 100 116 139;
+    --slate-600: 71 85 105;
+    --slate-700: 51 65 85;
+    --slate-800: 30 41 59;
+    --slate-900: 15 23 42;
+    --slate-950: 2 6 23;
+  }
+
+  /* Dark theme: a hand-tuned inversion of the neutral ramp. Backgrounds/
+     borders (low steps) go dark; text (high steps) goes light. The curve is
+     tuned for comfortable contrast rather than a literal 1:1 flip. */
+  :root.dark {
+    color-scheme: dark;
+
+    /* "Midnight teal": the dark surfaces lean very slightly towards the brand
+       colour instead of a neutral grey-blue. */
+    --surface: 13 25 36;        /* cards / header — lifted above the body */
+
+    /* Shadows need to be pure black and much stronger to read on dark. */
+    --shadow-color: 0 0 0;
+    --shadow-strength: 3.5;
+
+    --slate-50: 22 38 52;       /* subtle hovers / insets */
+    --slate-100: 26 43 58;      /* subtle fills */
+    --slate-200: 44 64 82;      /* borders / dividers */
+    --slate-300: 71 85 105;     /* stronger borders */
+    --slate-400: 100 116 139;   /* muted icons / placeholders */
+    --slate-500: 148 163 184;   /* secondary text */
+    --slate-600: 148 163 184;   /* secondary text */
+    --slate-700: 203 213 225;   /* body text */
+    --slate-800: 226 232 240;   /* strong text */
+    --slate-900: 241 245 249;   /* headings */
+    --slate-950: 248 250 252;   /* max-contrast text */
   }
 
   html {
@@ -24,16 +65,31 @@
     /* Slate-50 base lifted with a whisper of brand tint at the top of the
        viewport, so the canvas feels lit rather than flat grey. Fixed so it
        stays put while content scrolls. */
-    background-color: #f8fafc;
+    background-color: #f6f9fb;
+    /* Three soft "aurora" glows: teal from the top, a hint of indigo in the
+       top-right corner and emerald rising from the bottom-left. */
     background-image:
-      radial-gradient(ellipse 90% 55% at 50% -10%, rgb(20 184 166 / 0.07), transparent 70%),
-      radial-gradient(ellipse 70% 50% at 100% 0%, rgb(99 102 241 / 0.04), transparent 60%);
+      radial-gradient(ellipse 90% 55% at 50% -10%, rgb(20 184 166 / 0.11), transparent 70%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, rgb(99 102 241 / 0.06), transparent 60%),
+      radial-gradient(ellipse 60% 45% at 0% 100%, rgb(16 185 129 / 0.07), transparent 65%);
     background-attachment: fixed;
+    /* Smooth the flip when toggling themes. */
+    transition: background-color 200ms ease, color 200ms ease;
     /* Inter's contextual alternates + kerning for crisper text; discretionary
        ligatures off so code-like IDs stay legible. */
     font-feature-settings: 'cv11', 'ss01';
     font-variant-ligatures: contextual;
     text-rendering: optimizeLegibility;
+  }
+
+  /* Dark canvas: a deep slate base lifted with the same brand tint, so cards
+     (--surface) sit a notch above the page. */
+  :root.dark body {
+    background-color: #07111a;
+    background-image:
+      radial-gradient(ellipse 90% 55% at 50% -10%, rgb(20 184 166 / 0.16), transparent 70%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, rgb(99 102 241 / 0.09), transparent 60%),
+      radial-gradient(ellipse 60% 45% at 0% 100%, rgb(16 185 129 / 0.08), transparent 65%);
   }
 
   /* Tighter, more deliberate tracking on display headings. */
@@ -58,10 +114,75 @@
       scroll-behavior: auto;
     }
     .animate-in,
+    .page-enter,
+    .skeleton::after,
     *[class*='animate-'] {
       animation: none !important;
     }
   }
+
+  /* Text selection that matches the brand in dark mode too. */
+  :root.dark ::selection {
+    background: rgb(20 184 166 / 0.35);
+    color: rgb(240 253 250);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Finishing touches
+ * ------------------------------------------------------------------ */
+
+/* Each page eases in instead of popping (applied in AppLayout, keyed by
+   route so it replays on navigation). */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+}
+
+.page-enter {
+  animation: page-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Loading placeholders: a light sweep reads as "working" far better than a
+   flat pulse, and it follows the theme through the surface variable. */
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: rgb(var(--slate-200) / 0.7);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--surface) / 0.65),
+    transparent
+  );
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Brand hairline: a soft teal line that fades out at both ends, used under
+   the app header and on the active sidebar item. */
+.brand-hairline {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgb(20 184 166 / 0.45) 30%,
+    rgb(16 185 129 / 0.45) 70%,
+    transparent
+  );
 }
 
 /* ------------------------------------------------------------------ *
@@ -128,6 +249,39 @@
   line-height: 1.5;
 }
 
+/* Leaflet ships its own white chrome. In dark mode the app's text colours
+   invert to light, so popups and controls must follow the surface colour or
+   their content becomes light-on-white. */
+:root.dark .leaflet-popup-content-wrapper,
+:root.dark .leaflet-popup-tip {
+  background: rgb(var(--surface));
+  color: rgb(var(--slate-800));
+}
+
+:root.dark .leaflet-container a.leaflet-popup-close-button {
+  color: rgb(var(--slate-500));
+}
+
+:root.dark .leaflet-bar a,
+:root.dark .leaflet-control-layers {
+  background-color: rgb(var(--surface));
+  color: rgb(var(--slate-800));
+  border-color: rgb(var(--slate-200));
+}
+
+:root.dark .leaflet-bar a:hover {
+  background-color: rgb(var(--slate-100));
+}
+
+:root.dark .leaflet-control-attribution {
+  background: rgb(var(--surface) / 0.8);
+  color: rgb(var(--slate-500));
+}
+
+:root.dark .leaflet-container {
+  background: rgb(var(--slate-100));
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
@@ -139,10 +293,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgb(var(--slate-300));
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgb(var(--slate-400));
 }

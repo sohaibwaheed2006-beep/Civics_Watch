@@ -41,21 +41,17 @@ export const ForgotPasswordPage: React.FC = () => {
   return (
     <div className="w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-slate-200/90 bg-white grid grid-cols-1 md:grid-cols-12">
       {/* Visual Accent Panel */}
-      <div className="hidden md:flex md:col-span-5 relative flex-col justify-between p-6 text-white overflow-hidden bg-slate-950">
+      <div className="hidden md:flex md:col-span-5 relative flex-col justify-between p-6 text-white overflow-hidden bg-ink-950">
         <img
-          src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80"
-          alt="Civic City"
+          src="/images/auth/civic-city.jpg"
+          alt="Civic city skyline"
+          loading="lazy"
           onError={(e) => {
-            const img = e.currentTarget as HTMLImageElement;
-            if (!img.src.includes('/images/auth/civic-city.jpg')) {
-              img.src = '/images/auth/civic-city.jpg';
-            } else {
-              img.style.display = 'none';
-            }
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
           className="absolute inset-0 h-full w-full object-cover opacity-35 mix-blend-screen"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-teal-950 via-slate-950/85 to-teal-900/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-teal-950 via-ink-950/85 to-teal-900/40" />
         <div className="relative z-10 space-y-2">
           <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30">
             Security & Support

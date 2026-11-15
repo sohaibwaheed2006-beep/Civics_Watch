@@ -7,7 +7,7 @@ export const Skeleton: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 }) => {
   return (
     <div
-      className={cn('animate-pulse rounded-md bg-slate-200/80', className)}
+      className={cn('skeleton rounded-md', className)}
       {...props}
     />
   );
@@ -15,7 +15,7 @@ export const Skeleton: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 
 export const CardSkeleton: React.FC = () => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 space-y-4 shadow-sm">
       <div className="flex items-center justify-between">
         <Skeleton className="h-5 w-24" />
         <Skeleton className="h-5 w-16 rounded-full" />
@@ -33,7 +33,7 @@ export const CardSkeleton: React.FC = () => {
 
 export const TableSkeleton: React.FC<{ rows?: number }> = ({ rows = 5 }) => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 space-y-3 shadow-sm">
       <Skeleton className="h-8 w-full rounded" />
       {Array.from({ length: rows }).map((_, i) => (
         <Skeleton key={i} className="h-12 w-full rounded" />

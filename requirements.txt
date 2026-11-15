@@ -20,6 +20,9 @@ argon2-cffi==25.1.0
 # --- Cloud Services / Supabase --------------------------------------------
 supabase>=2.13.0
 
+# --- Error tracking (optional; no-op unless SENTRY_DSN is set) -------------
+sentry-sdk[fastapi]==2.72.0
+
 # --- Testing --------------------------------------------------------------
 pytest==9.1.1
 httpx==0.28.1

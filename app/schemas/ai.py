@@ -24,6 +24,11 @@ class VisionAnalyzeResponse(APIModel):
     spam_score: float = 0.0
     is_spam: bool = False
     spam_reason: str | None = None
+    #: False when the photo is readable but shows no clear, reportable public
+    #: issue. The client must ask for a new photo (showing ``retake_reason``)
+    #: rather than continuing to the report form.
+    issue_detected: bool = True
+    retake_reason: str | None = None
 
 
 class ResolutionCheckResponse(APIModel):

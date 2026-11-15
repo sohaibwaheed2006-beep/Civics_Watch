@@ -26,7 +26,7 @@ function createPinIcon(status?: ReportStatus, priority?: ReportPriority) {
     bgColor = 'bg-blue-600';
     ringColor = 'ring-blue-100';
   } else if (status === 'rejected') {
-    bgColor = 'bg-slate-500';
+    bgColor = 'bg-ink-500';
     ringColor = 'ring-slate-100';
   } else if (priority === 'urgent') {
     bgColor = 'bg-rose-600';

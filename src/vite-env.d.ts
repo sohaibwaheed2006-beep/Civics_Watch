@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_MAP_DEFAULT_LNG: string;
   readonly VITE_MAP_DEFAULT_ZOOM: string;
   readonly VITE_ENABLE_MOCK_FALLBACK: string;
+  readonly VITE_SENTRY_DSN?: string;
 }
 
 interface ImportMeta {

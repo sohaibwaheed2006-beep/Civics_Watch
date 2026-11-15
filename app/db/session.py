@@ -17,7 +17,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Iterator
 
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, create_engine, make_url, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -55,15 +55,30 @@ def get_engine() -> Engine:
     settings = get_settings()
 
     if settings.is_sqlite:
-        # SQLite needs different handling: an in-memory database lives for as
-        # long as its single connection, so share one across the pool and
-        # allow cross-thread use (FastAPI runs sync endpoints in a threadpool).
+        # FastAPI runs sync endpoints in a threadpool, so connections must be
+        # usable across threads.
+        url = make_url(settings.DATABASE_URL)
+        in_memory = url.database in (None, "", ":memory:")
+        if in_memory:
+            # An in-memory database lives only as long as its one connection,
+            # so that single connection has to be shared by the whole pool.
+            return create_engine(
+                settings.DATABASE_URL,
+                echo=settings.DB_ECHO,
+                future=True,
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+            )
+        # A file database must NOT share one connection: a page load fires
+        # several requests at once, and two threads using the same sqlite3
+        # connection fail with "bad parameter or other API misuse" (seen as
+        # random 500s / 401s). Give each checkout its own connection, and
+        # wait for a writer lock instead of failing immediately.
         return create_engine(
             settings.DATABASE_URL,
             echo=settings.DB_ECHO,
             future=True,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
+            connect_args={"check_same_thread": False, "timeout": 15},
         )
 
     engine = create_engine(

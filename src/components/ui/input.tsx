@@ -7,10 +7,11 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  hideRequiredAsterisk?: boolean;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type = 'text', label, error, helperText, leftIcon, rightIcon, id, ...props }, ref) => {
+  ({ className, type = 'text', label, error, helperText, leftIcon, rightIcon, hideRequiredAsterisk, id, ...props }, ref) => {
     const generatedId = React.useId();
     const inputId = id || generatedId;
 
@@ -19,12 +20,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label htmlFor={inputId} className="block text-sm font-medium text-slate-700">
             {label}
-            {props.required && <span className="text-rose-500 ml-1">*</span>}
+            {props.required && !hideRequiredAsterisk && <span className="text-rose-500 ml-1">*</span>}
           </label>
         )}
-        <div className="relative rounded-lg shadow-sm">
+        <div className="relative rounded-xl shadow-xs">
           {leftIcon && (
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               {leftIcon}
             </div>
           )}
@@ -33,8 +34,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             type={type}
             className={cn(
-              'block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 transition-colors hover:border-slate-400',
-              'focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20',
+              'block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-colors hover:border-slate-400',
+              'focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/15',
               'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',

@@ -29,6 +29,17 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: '#f43f5e',
 };
 
+// Recharts tooltips take inline styles, so they read the theme's CSS
+// variables directly to follow light / dark mode.
+const TOOLTIP_STYLE: React.CSSProperties = {
+  backgroundColor: 'rgb(var(--surface))',
+  borderRadius: '0.75rem',
+  border: '1px solid rgb(var(--slate-200))',
+  fontSize: '12px',
+  color: 'rgb(var(--slate-800))',
+};
+const TOOLTIP_TEXT_STYLE: React.CSSProperties = { color: 'rgb(var(--slate-800))' };
+
 export const AdminAnalyticsPage: React.FC = () => {
   const { data: analytics, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-analytics-detailed'],
@@ -201,12 +212,8 @@ export const AdminAnalyticsPage: React.FC = () => {
                       ))}
                     </Pie>
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#ffffff',
-                        borderRadius: '0.75rem',
-                        border: '1px solid #e2e8f0',
-                        fontSize: '12px',
-                      }}
+                      contentStyle={TOOLTIP_STYLE}
+                      itemStyle={TOOLTIP_TEXT_STYLE}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -239,7 +246,12 @@ export const AdminAnalyticsPage: React.FC = () => {
                       textAnchor="end"
                     />
                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <Tooltip />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      itemStyle={TOOLTIP_TEXT_STYLE}
+                      labelStyle={TOOLTIP_TEXT_STYLE}
+                      cursor={{ fill: 'rgb(var(--slate-100))' }}
+                    />
                     <Bar dataKey="count" fill="#0d9488" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -255,7 +267,12 @@ export const AdminAnalyticsPage: React.FC = () => {
                   <LineChart data={analytics.overTime} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} />
                     <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <Tooltip />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      itemStyle={TOOLTIP_TEXT_STYLE}
+                      labelStyle={TOOLTIP_TEXT_STYLE}
+                      cursor={{ fill: 'rgb(var(--slate-100))' }}
+                    />
                     <Line
                       type="monotone"
                       dataKey="submitted"

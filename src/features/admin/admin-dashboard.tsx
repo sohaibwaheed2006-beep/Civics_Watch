@@ -168,14 +168,14 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Worker of the month: live leaderboard + most recent award. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 border-amber-200/70 bg-gradient-to-br from-amber-50/70 to-white shadow-sm">
+        <Card className="lg:col-span-2 border-amber-200/70 dark:border-amber-500/20 bg-gradient-to-br from-amber-50/70 to-white dark:from-amber-500/10 dark:to-transparent shadow-sm">
           <CardHeader className="flex-row items-center justify-between gap-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Trophy className="h-4 w-4 text-amber-500" />
               <span>Worker of the Month - Live Leaderboard</span>
             </CardTitle>
             <span className="text-[11px] text-slate-500">
-              Rating 50% Â· Speed 30% Â· Volume 20%
+              Rating 50% {'·'} Speed 30% {'·'} Volume 20%
             </span>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -212,7 +212,7 @@ export const AdminDashboard: React.FC = () => {
                     <div className="flex items-center gap-3 text-[11px] text-slate-600 shrink-0">
                       <span className="flex items-center gap-1">
                         <Star className="h-3 w-3 text-amber-500 fill-amber-400" />
-                        {row.averageRating ? row.averageRating.toFixed(2) : 'â€“'}
+                        {row.averageRating ? row.averageRating.toFixed(2) : '–'}
                       </span>
                       <span>{row.resolvedCount} resolved</span>
                       <span>{Math.round(row.onTimeRate * 100)}% on-time</span>

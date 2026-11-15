@@ -11,10 +11,13 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          'rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200',
+          'rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200',
+          // On dark, a hairline inner highlight gives the surface a lit top
+          // edge so it reads as raised rather than as a flat rectangle.
+          'dark:ring-1 dark:ring-inset dark:ring-edge',
           // Hover lifts the card a hair and deepens the shadow for tangible depth.
           hoverEffect &&
-            'cursor-pointer hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg',
+            'cursor-pointer hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lg',
           className
         )}
         {...props}
@@ -42,7 +45,7 @@ export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   children,
   ...props
 }) => (
-  <h3 className={cn('text-lg font-semibold leading-none tracking-tight text-slate-900', className)} {...props}>
+  <h3 className={cn('text-lg font-semibold leading-snug tracking-tight text-slate-900', className)} {...props}>
     {children}
   </h3>
 );

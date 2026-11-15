@@ -35,7 +35,7 @@ function createStatusIcon(status: ReportStatus, priority: ReportPriority, assign
     bgColor = 'bg-blue-600';
     ringColor = 'ring-blue-100';
   } else if (status === 'rejected') {
-    bgColor = 'bg-slate-500';
+    bgColor = 'bg-ink-500';
     ringColor = 'ring-slate-100';
   } else if (priority === 'urgent') {
     bgColor = 'bg-rose-600';
@@ -301,7 +301,7 @@ export const IssueMap: React.FC<IssueMapProps> = ({ reports, baseDetailRoute, hi
                   <PriorityBadge priority={selectedReport.priority} size="sm" />
                 </div>
                 {selectedReport.photos && selectedReport.photos.length > 1 && (
-                  <span className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur text-white text-[10px] font-medium px-2 py-0.5 rounded-full">
+                  <span className="absolute bottom-2 right-2 bg-ink-900/80 backdrop-blur text-white text-[10px] font-medium px-2 py-0.5 rounded-full">
                     +{selectedReport.photos.length} photos
                   </span>
                 )}

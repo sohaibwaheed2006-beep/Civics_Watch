@@ -50,7 +50,17 @@ export const CreateReportPage: React.FC = () => {
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisNote, setAnalysisNote] = useState<string | null>(null);
-  const [spamRejected, setSpamRejected] = useState<string | null>(null);
+  // Why the last photo did not get the citizen to Step 2:
+  //   retake      - the photo itself was rejected (unreadable / no issue seen)
+  //   unavailable - the AI service failed; the same photo can be retried
+  const [photoProblem, setPhotoProblem] = useState<{
+    kind: 'retake' | 'unavailable';
+    reason: string;
+  } | null>(null);
+  // Consecutive "service unavailable" results; the manual-entry escape hatch
+  // only appears once a retry has also failed.
+  const [unavailableCount, setUnavailableCount] = useState(0);
+  const lastCoordsRef = useRef<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
   // Whether the pin was placed from a device GPS fix, and how accurate that
@@ -201,7 +211,7 @@ export const CreateReportPage: React.FC = () => {
   // --- The core photo-first pipeline --------------------------------------
   const processPhoto = async (file: File) => {
     setUploadError(null);
-    setSpamRejected(null);
+    setPhotoProblem(null);
     setServerError(null);
 
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -213,7 +223,9 @@ export const CreateReportPage: React.FC = () => {
       return;
     }
 
-    const preview = URL.createObjectURL(file);
+    // Re-analysing the same file (the "Try again" path) keeps its preview.
+    const preview =
+      file === photo && photoPreview ? photoPreview : URL.createObjectURL(file);
     setPhoto(file);
     setPhotoPreview(preview);
     setAnalyzing(true);
@@ -221,39 +233,50 @@ export const CreateReportPage: React.FC = () => {
     setAnalysisNote('Looking at your photo and detecting the issue…');
 
     // Kick off AI analysis and GPS in parallel.
-    const [result, coords] = await Promise.all([
+    const [analysis, coords] = await Promise.all([
       aiService.analyzePhoto(file),
       detectLocation(),
     ]);
     setLocating(false);
+    lastCoordsRef.current = coords;
 
-    // Hard spam gate: auto-reject before the citizen ever sees a form.
-    if (result && result.isSpam) {
+    // The wizard only advances when the AI actually detected an issue. Any
+    // other outcome keeps the citizen on this step with a clear next action:
+    // retake the photo, or retry the analysis if the service was down.
+    if (analysis.status !== 'detected') {
       setAnalyzing(false);
-      setSpamRejected(
-        result.spamReason ||
-          'This photo does not look like a genuine neighborhood issue.'
-      );
+      setAnalysisNote(null);
+      if (analysis.status === 'unavailable') {
+        setUnavailableCount((n) => n + 1);
+      }
+      setPhotoProblem({ kind: analysis.status, reason: analysis.reason });
       return;
     }
 
-    const fill: Partial<CreateReportFormData> = {};
-    if (result) {
-      fill.category = result.category;
-      fill.title = result.title;
-      fill.description = result.description;
-      setAiConfidence(result.confidence);
-      setAnalysisNote(
-        `Detected: ${CATEGORY_DETAILS[result.category]?.label || result.category} · ${result.priority} priority`
-      );
-    } else {
-      // AI unavailable - the citizen can still fill the form by hand.
-      setAnalysisNote(
-        'Automatic detection was unavailable. Please describe the issue below.'
-      );
-    }
+    const result = analysis.data;
+    setUnavailableCount(0);
+    setAiConfidence(result.confidence);
+    setAnalysisNote(
+      `Detected: ${CATEGORY_DETAILS[result.category]?.label || result.category} · ${result.priority} priority`
+    );
+    const fill: Partial<CreateReportFormData> = {
+      category: result.category,
+      title: result.title,
+      description: result.description,
+      ...(await buildLocationFill(coords, result.locationHint)),
+    };
 
-    // Apply detected coordinates and reverse-geocode to a street address.
+    setPendingFill(fill);
+    setAnalyzing(false);
+    setStep('confirm');
+  };
+
+  // Apply detected coordinates and reverse-geocode them to a street address.
+  const buildLocationFill = async (
+    coords: { lat: number; lng: number; accuracy: number } | null,
+    locationHint: string | null
+  ): Promise<Partial<CreateReportFormData>> => {
+    const fill: Partial<CreateReportFormData> = {};
     if (coords) {
       fill.latitude = coords.lat;
       fill.longitude = coords.lng;
@@ -268,14 +291,31 @@ export const CreateReportPage: React.FC = () => {
       // map rather than silently submitting the default map center.
       setLocationAutoDetected(false);
       setGpsAccuracy(null);
-      if (result?.locationHint) {
-        fill.address = result.locationHint;
+      if (locationHint) {
+        fill.address = locationHint;
       }
     }
+    return fill;
+  };
 
-    setPendingFill(fill);
-    setAnalyzing(false);
+  // Last resort when the AI service itself stays down after a retry: let the
+  // citizen fill the form by hand. Never offered for a rejected photo.
+  const continueManually = async () => {
+    setPhotoProblem(null);
+    setAiConfidence(null);
+    setAnalysisNote(
+      'Automatic detection was unavailable. Please describe the issue below.'
+    );
+    setPendingFill(await buildLocationFill(lastCoordsRef.current, null));
     setStep('confirm');
+  };
+
+  // Drop the rejected photo so the citizen can take or pick another one.
+  const discardPhoto = () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhoto(null);
+    setPhotoPreview(null);
+    setPhotoProblem(null);
   };
 
   // Once Step 2 is on screen and its inputs are mounted, push the detected
@@ -305,7 +345,9 @@ export const CreateReportPage: React.FC = () => {
     setPhoto(null);
     setPhotoPreview(null);
     setStep('upload');
-    setSpamRejected(null);
+    setPhotoProblem(null);
+    setUnavailableCount(0);
+    lastCoordsRef.current = null;
     setUploadError(null);
     setServerError(null);
     setCameraError(null);
@@ -413,19 +455,70 @@ export const CreateReportPage: React.FC = () => {
               <p className="text-xs text-rose-600 font-medium">{uploadError}</p>
             )}
 
-            {spamRejected && (
+            {photoProblem?.kind === 'retake' && !analyzing && !cameraOpen && (
               <div
                 role="alert"
-                className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900"
+                className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900"
               >
-                <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                {photoPreview ? (
+                  <img
+                    src={photoPreview}
+                    alt="The photo that was not accepted"
+                    className="h-16 w-16 shrink-0 rounded-lg object-cover border border-rose-200"
+                  />
+                ) : (
+                  <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                )}
                 <div className="space-y-1">
-                  <p className="font-bold">This photo was not accepted</p>
-                  <p>{spamRejected}</p>
-                  <p className="text-rose-800">
-                    Please upload a clear photo of an actual public issue (road
-                    damage, streetlight, water leak, garbage, etc.).
+                  <p className="font-bold">
+                    We couldn't detect an issue in this photo — please retake it
                   </p>
+                  <p>{photoProblem.reason}</p>
+                  <p className="text-rose-800">
+                    Take a clear, well-lit photo with the problem (road damage,
+                    streetlight, water leak, garbage, etc.) filling the frame,
+                    then try again below.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {photoProblem?.kind === 'unavailable' && !analyzing && !cameraOpen && (
+              <div
+                role="alert"
+                className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900"
+              >
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-2.5">
+                  <div className="space-y-1">
+                    <p className="font-bold">We couldn't analyze your photo just now</p>
+                    <p>{photoProblem.reason}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {photo && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => void processPhoto(photo)}
+                        leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+                      >
+                        Try again
+                      </Button>
+                    )}
+                    <Button type="button" size="sm" variant="outline" onClick={discardPhoto}>
+                      Use a different photo
+                    </Button>
+                    {unavailableCount >= 2 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void continueManually()}
+                      >
+                        Fill in the details myself
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -498,7 +591,7 @@ export const CreateReportPage: React.FC = () => {
                   >
                     <Camera className="h-9 w-9 text-teal-600 mb-2.5" />
                     <p className="text-sm font-semibold text-slate-800">
-                      Take a photo
+                      {photoProblem?.kind === 'retake' ? 'Retake the photo' : 'Take a photo'}
                     </p>
                     <p className="text-[11px] text-slate-500 mt-0.5">
                       Capture live from your camera

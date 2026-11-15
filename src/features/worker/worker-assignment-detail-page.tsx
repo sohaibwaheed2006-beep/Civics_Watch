@@ -290,7 +290,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
               href={`https://www.google.com/maps/dir/?api=1&destination=${report.latitude},${report.longitude}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition-colors gap-2"
+              className="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl bg-ink-900 text-white font-medium hover:bg-ink-800 transition-colors gap-2"
             >
               <Navigation className="h-4 w-4 text-teal-400" />
               <span>Launch Turn-by-Turn GPS Navigation</span>
@@ -352,7 +352,7 @@ export const WorkerAssignmentDetailPage: React.FC = () => {
               Cancel
             </Button>
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              variant="success"
               onClick={() => completeWorkMutation.mutate()}
               isLoading={completeWorkMutation.isPending}
             >

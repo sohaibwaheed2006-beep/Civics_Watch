@@ -56,3 +56,35 @@ services:
         sync: false
       - key: FRONTEND_BASE_URL
         sync: false
+      # Google Gemini key (aistudio.google.com -> Get API key). REQUIRED for
+      # the photo wizard: without it every photo analysis answers
+      # "temporarily unavailable" and citizens must fill reports by hand.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-flash-lite-latest
+      # Google Maps / Geocoding key (optional; leave blank to skip).
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+
+      # ---- Email (verification + password-reset mails). Optional: leave
+      # SMTP_HOST blank to disable email; the rest of the app still works. ----
+      - key: EMAIL_ENABLED
+        value: "true"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "2525"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: Neighborhood Issue Reporter
+
+      # Backend error tracking (optional). Paste a Sentry DSN to enable, or
+      # leave blank in the dashboard to keep it off. No-op when unset.
+      - key: SENTRY_DSN
+        sync: false

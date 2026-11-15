@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Sequence
 
-from sqlalchemy import Date, Select, cast, func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.core.enums import ReportStatus
@@ -178,7 +178,11 @@ def reports_over_time(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> list[dict[str, date | int]]:
-    day = cast(Report.created_at, Date).label("day")
+    # ``date()`` rather than ``CAST(... AS DATE)``: Postgres treats the two the
+    # same, but SQLite's CAST yields a bare number (the year), which crashed
+    # the Date result processor. SQLite's ``date()`` returns 'YYYY-MM-DD',
+    # handled just below.
+    day = func.date(Report.created_at).label("day")
     stmt = (
         _apply_date_window(
             select(day, func.count(Report.id)).group_by(day),

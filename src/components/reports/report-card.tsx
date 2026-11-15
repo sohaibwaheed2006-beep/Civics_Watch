@@ -21,7 +21,7 @@ export const ReportCard: React.FC<ReportCardProps> = ({ report, detailUrl }) => 
     <Card hoverEffect className="flex flex-col justify-between group overflow-hidden border-slate-200/90 hover:border-teal-300">
       <div>
         {/* Header photo with category visual fallback */}
-        <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-4 bg-slate-900/10 overflow-hidden border-b border-slate-100">
+        <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-4 bg-ink-900/10 overflow-hidden border-b border-slate-100">
           <img
             src={photoUrl}
             alt={report.title}
@@ -48,14 +48,14 @@ export const ReportCard: React.FC<ReportCardProps> = ({ report, detailUrl }) => 
 
           {/* Multiple photos or fallback indicator */}
           {hasPhoto && report.photos.length > 1 && (
-            <div className="absolute bottom-2 right-2 bg-slate-900/75 backdrop-blur-xs text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
+            <div className="absolute bottom-2 right-2 bg-ink-900/75 backdrop-blur-xs text-white text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
               <Camera className="h-3 w-3" />
               <span>+{report.photos.length - 1}</span>
             </div>
           )}
 
           {!hasPhoto && (
-            <div className="absolute bottom-2 right-2 bg-slate-900/60 backdrop-blur-xs text-slate-200 text-[10px] font-medium px-2 py-0.5 rounded-full">
+            <div className="absolute bottom-2 right-2 bg-ink-900/60 backdrop-blur-xs text-ink-200 text-[10px] font-medium px-2 py-0.5 rounded-full">
               Category visual
             </div>
           )}

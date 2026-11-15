@@ -26,7 +26,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos, category }) 
               className="h-full w-full object-cover"
               loading="lazy"
             />
-            <div className="absolute bottom-0 inset-x-0 bg-slate-900/70 p-2 text-[11px] text-white">
+            <div className="absolute bottom-0 inset-x-0 bg-ink-900/70 p-2 text-[11px] text-white">
               Category reference visual (no photos uploaded by reporter)
             </div>
           </div>
@@ -58,10 +58,10 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos, category }) 
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               loading="lazy"
             />
-            <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+            <div className="absolute inset-0 bg-ink-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
               <Eye className="h-5 w-5" />
             </div>
-            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950/80 to-transparent p-1.5 text-[10px] text-white truncate">
+            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink-950/80 to-transparent p-1.5 text-[10px] text-white truncate">
               {photo.filename}
             </div>
           </div>
@@ -78,7 +78,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos, category }) 
       >
         {activePhoto && (
           <div className="flex flex-col items-center">
-            <div className="relative max-h-[70vh] overflow-hidden rounded-xl bg-slate-950 flex items-center justify-center w-full">
+            <div className="relative max-h-[70vh] overflow-hidden rounded-xl bg-ink-950 flex items-center justify-center w-full">
               <img
                 src={activePhoto.url}
                 alt={activePhoto.filename}

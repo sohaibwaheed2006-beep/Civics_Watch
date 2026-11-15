@@ -48,17 +48,13 @@ export const WorkerDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Worker Greeting Banner with Field Operations Photo */}
-      <div className="rounded-2xl bg-gradient-to-r from-amber-900 via-amber-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-amber-800/40">
+      <div className="rounded-2xl bg-gradient-to-r from-amber-900 via-amber-950 to-ink-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-amber-800/40">
         <img
-          src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80"
-          alt="Field Operations"
+          src="/images/hero/worker-hero.jpg"
+          alt="Field operations crew at work"
+          loading="lazy"
           onError={(e) => {
-            const img = e.currentTarget as HTMLImageElement;
-            if (!img.src.includes('/images/hero/worker-hero.jpg')) {
-              img.src = '/images/hero/worker-hero.jpg';
-            } else {
-              img.style.display = 'none';
-            }
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
           className="absolute inset-0 h-full w-full object-cover object-center opacity-25 mix-blend-screen pointer-events-none"
         />
@@ -77,8 +73,9 @@ export const WorkerDashboard: React.FC = () => {
           <div className="pt-2 flex flex-wrap gap-3">
             <Link to="/worker/assignments">
               <Button
+                variant="outline"
                 size="lg"
-                className="bg-white text-amber-900 hover:bg-amber-50 font-semibold shadow-md"
+                className="border-transparent bg-white text-amber-900 hover:bg-amber-50 hover:border-transparent hover:text-amber-900 font-semibold shadow-md"
                 leftIcon={<ClipboardList className="h-5 w-5 text-amber-700" />}
               >
                 View All Work Orders ({totalAssigned})

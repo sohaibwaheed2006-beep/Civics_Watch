@@ -23,11 +23,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/60 p-8 text-center',
+        'flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300/80 bg-white/60 px-8 py-10 text-center',
         className
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500 mb-3">
+      {/* Icon in a soft brand halo so an empty page still feels designed. */}
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600 ring-8 ring-teal-50/60 mb-5">
         <Icon className="h-6 w-6" />
       </div>
       <h4 className="text-base font-semibold text-slate-800">{title}</h4>

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "tunnel": ".\\cloudflared.exe tunnel --url http://127.0.0.1:5173 --http-host-header localhost:5173",
+    "share": "start-share.bat",
+    "tunnel": ".\\cloudflared.exe tunnel --url http://127.0.0.1:5173 --http-host-header localhost:5173 --protocol http2",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -14,6 +15,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
+    "@sentry/react": "^11.8.0",
     "@tanstack/react-query": "^5.62.0",
     "axios": "^1.7.9",
     "clsx": "^2.1.1",

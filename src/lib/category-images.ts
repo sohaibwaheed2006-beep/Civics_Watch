@@ -1,24 +1,28 @@
 import { ReportCategory } from '@/types/report';
 
+// Every cover image is now self-hosted from `public/images/categories/`.
+// External hotlinks (previously Unsplash) were removed: they can rate-limit,
+// go down, or silently drift to an unrelated photo in production — which had
+// already happened to several IDs. `url` and `fallback` point at the same
+// bundled asset; `handleImageFallback` degrades to an inline SVG if even that
+// fails to load (e.g. the file is missing from the deploy).
 export const CATEGORY_IMAGES: Record<ReportCategory, { url: string; fallback: string; alt: string }> = {
   road_damage: {
-    url: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80',
+    url: '/images/categories/road_damage.jpg',
     fallback: '/images/categories/road_damage.jpg',
     alt: 'Road surface damage and asphalt maintenance',
   },
   streetlight: {
-    url: 'https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&w=800&q=80',
+    url: '/images/categories/streetlight.jpg',
     fallback: '/images/categories/streetlight.jpg',
     alt: 'Streetlight and municipal electrical infrastructure',
   },
   garbage_waste: {
-    url: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=800&q=80',
+    url: '/images/categories/garbage_waste.jpg',
     fallback: '/images/categories/garbage_waste.jpg',
     alt: 'Sanitation, municipal waste, and litter containment',
   },
   water_leak: {
-    // Self-hosted: the previous Unsplash IDs resolved to unrelated stock
-    // (a workshop / a living room). Serving the image locally keeps it correct.
     url: '/images/categories/water_leak.jpg',
     fallback: '/images/categories/water_leak.jpg',
     alt: 'Water gushing from a leaking metal water pipe',
@@ -29,12 +33,12 @@ export const CATEGORY_IMAGES: Record<ReportCategory, { url: string; fallback: st
     alt: 'A curbside storm drain blocked with standing water and debris',
   },
   public_property: {
-    url: 'https://images.unsplash.com/photo-1519331379826-f10be5486c6f?auto=format&fit=crop&w=800&q=80',
+    url: '/images/categories/public_property.jpg',
     fallback: '/images/categories/public_property.jpg',
     alt: 'Public property, parks, railings, and civic assets',
   },
   other: {
-    url: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=800&q=80',
+    url: '/images/categories/other.jpg',
     fallback: '/images/categories/other.jpg',
     alt: 'Neighborhood civic infrastructure',
   },

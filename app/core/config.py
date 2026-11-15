@@ -150,6 +150,16 @@ class Settings(BaseSettings):
     # --- Google Maps -----------------------------------------------------
     GOOGLE_MAPS_API_KEY: str = ""
 
+    # --- Error tracking (Sentry) -----------------------------------------
+    #: Leave blank to disable Sentry entirely (the SDK is never initialised,
+    #: so there is zero overhead and nothing is sent). Set it to the DSN from
+    #: your Sentry project (Settings -> Client Keys) to turn reporting on.
+    SENTRY_DSN: str = ""
+    #: Fraction of transactions traced for performance monitoring (0..1). Kept
+    #: low by default so the free-tier quota lasts; error reporting is always
+    #: 100% regardless of this value.
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+
     # --- Email / SMTP -----------------------------------------------------
     #: Master switch. Even with SMTP configured, set this False to silence all
     #: outbound mail (useful in tests and local demos).
@@ -403,6 +413,11 @@ class Settings(BaseSettings):
     def google_maps_configured(self) -> bool:
         """True when a Google Maps API key is set."""
         return bool(self.GOOGLE_MAPS_API_KEY.strip())
+
+    @property
+    def sentry_configured(self) -> bool:
+        """True when a Sentry DSN is set and error tracking should be enabled."""
+        return bool(self.SENTRY_DSN.strip())
 
     @property
     def smtp_configured(self) -> bool:

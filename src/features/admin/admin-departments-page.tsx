@@ -195,7 +195,7 @@ export const AdminDepartmentsPage: React.FC = () => {
               >
                 <div>
                   {/* Department Banner Photo */}
-                  <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-4 bg-slate-900/10 overflow-hidden border-b border-slate-100">
+                  <div className="relative aspect-[16/9] -mx-5 -mt-5 mb-4 bg-ink-900/10 overflow-hidden border-b border-slate-100">
                     <img
                       src={coverUrl}
                       alt={dept.name}
@@ -211,14 +211,14 @@ export const AdminDepartmentsPage: React.FC = () => {
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-ink-950/80 via-transparent to-black/20" />
 
                     <div className="absolute top-3 left-3">
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold backdrop-blur-xs border shadow-xs ${
                           dept.isActive
                             ? 'bg-emerald-600/90 text-white border-emerald-400/40'
-                            : 'bg-slate-800/90 text-slate-200 border-slate-700'
+                            : 'bg-ink-800/90 text-ink-200 border-ink-700'
                         }`}
                       >
                         {dept.isActive ? (

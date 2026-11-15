@@ -18,7 +18,12 @@ from app.api.deps import (
     SettingsDep,
     require_admin,
 )
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.exceptions import (
+    AppError,
+    ConflictError,
+    NotFoundError,
+    UnprocessableEntityError,
+)
 from app.models.report import Report
 from app.schemas.ai import (
     AutoRouteResponse,
@@ -44,6 +49,7 @@ router = APIRouter()
     responses={
         status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse},
         status.HTTP_409_CONFLICT: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
         status.HTTP_503_SERVICE_UNAVAILABLE: {"model": ErrorResponse},
     },
 )
@@ -60,12 +66,30 @@ async def vision_analyze(
         declared_content_type=file.content_type or "",
         max_bytes=settings.max_upload_size_bytes,
     )
-    result = vision_service.analyze_report_photo(data)
-    if result is None:
-        raise NotFoundError(
-            "Vision analysis is unavailable. Please fill the form manually."
-        )
+    # Two distinct failures, so the wizard can react correctly instead of
+    # advancing to the form with an error banner:
+    #   422 photo_not_recognized -> the photo is the problem: retake it.
+    #   503 vision_unavailable   -> the AI service is the problem: retry.
+    # A readable photo with no visible issue is a 200 with
+    # ``issue_detected=false`` and a ``retake_reason``.
+    try:
+        result = vision_service.analyze_report_photo(data)
+    except vision_service.PhotoNotRecognizedError as exc:
+        raise UnprocessableEntityError(
+            "We couldn't recognise an issue in this photo. Please retake it "
+            "in good light, with the problem clearly in frame.",
+            code="photo_not_recognized",
+        ) from exc
+    except vision_service.VisionUnavailableError as exc:
+        raise AppError(
+            "Photo analysis is temporarily unavailable. Please try again in "
+            "a moment.",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="vision_unavailable",
+        ) from exc
     return VisionAnalyzeResponse(
+        issue_detected=result.issue_detected,
+        retake_reason=result.retake_reason,
         category=result.category,
         priority=result.priority,
         title=result.title,

@@ -4,6 +4,7 @@ import { Shield, LogOut, LayoutDashboard } from 'lucide-react';
 import { ToastContainer } from '@/components/ui/toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar } from '@/components/ui/avatar';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { ROLE_DETAILS } from '@/lib/constants';
 
 export const PublicLayout: React.FC = () => {
@@ -32,12 +33,12 @@ export const PublicLayout: React.FC = () => {
   const roleInfo = user ? ROLE_DETAILS[user.role] : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/50 to-slate-50 flex flex-col justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-[#eff8f7] via-[#f7fafb] to-[#ecf6f5] dark:from-[#07111a] dark:via-[#0a1722] dark:to-[#08201f] flex flex-col justify-between">
       {/* Public Header */}
-      <header className="w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-6 py-4">
+      <header className="w-full border-b border-slate-200/60 bg-white/70 backdrop-blur-md px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white shadow-md shadow-teal-600/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-btn-primary">
               <Shield className="h-5 w-5" />
             </div>
             <div>
@@ -46,7 +47,8 @@ export const PublicLayout: React.FC = () => {
             </div>
           </Link>
 
-          <div className="flex items-center gap-3 text-xs font-medium text-slate-600">
+          <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
+            <ThemeToggle />
             {isAuthenticated && user ? (
               <div className="flex items-center gap-3">
                 <div className="hidden sm:flex items-center gap-2 pr-2 border-r border-slate-200">
@@ -68,7 +70,7 @@ export const PublicLayout: React.FC = () => {
 
                 <Link
                   to={getDashboardRoute()}
-                  className="rounded-lg bg-teal-600 px-3 py-1.5 text-white hover:bg-teal-700 transition-colors shadow-sm flex items-center gap-1.5 font-semibold"
+                  className="rounded-xl bg-[#0d9488] px-3.5 py-1.5 text-white hover:bg-teal-700 transition-colors shadow-sm flex items-center gap-1.5 font-semibold"
                 >
                   <LayoutDashboard className="h-3.5 w-3.5" />
                   <span>Dashboard</span>
@@ -85,12 +87,12 @@ export const PublicLayout: React.FC = () => {
               </div>
             ) : (
               <>
-                <Link to="/login" className="hover:text-teal-700 transition-colors">
+                <Link to="/login" className="text-slate-700 hover:text-teal-700 font-medium text-sm transition-colors">
                   Sign In
                 </Link>
                 <Link
                   to="/register"
-                  className="rounded-lg bg-teal-600 px-3.5 py-1.5 text-white hover:bg-teal-700 transition-colors shadow-sm"
+                  className="rounded-xl bg-[#0d9488] hover:bg-[#0f766e] px-4 py-2 text-white font-medium text-sm shadow-md shadow-teal-700/20 hover:shadow-teal-700/30 transition-all"
                 >
                   Register as Citizen
                 </Link>

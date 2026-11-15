@@ -7,8 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { parseApiError } from '@/lib/api-errors';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Eye, EyeOff, Lock, Mail, ShieldAlert, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ShieldAlert, Sparkles, User, Key, Wrench, Loader2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -90,23 +89,19 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden shadow-2xl border border-slate-200/90 bg-white">
+    <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-[28px] overflow-hidden shadow-2xl shadow-slate-200/70 border border-slate-100 bg-white">
       {/* Visual Hero Panel (5 cols) */}
-      <div className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-8 text-white overflow-hidden bg-slate-950">
+      <div className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-8 text-white overflow-hidden bg-ink-900 border-r border-teal-500/20">
         <img
-          src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80"
-          alt="Civic City"
+          src="/images/auth/civic-city.jpg"
+          alt="Civic city skyline"
+          loading="lazy"
           onError={(e) => {
-            const img = e.currentTarget as HTMLImageElement;
-            if (!img.src.includes('/images/auth/civic-city.jpg')) {
-              img.src = '/images/auth/civic-city.jpg';
-            } else {
-              img.style.display = 'none';
-            }
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
-          className="absolute inset-0 h-full w-full object-cover object-center opacity-40 mix-blend-screen"
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-45 mix-blend-screen"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-teal-950 via-slate-950/80 to-teal-900/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-teal-950 via-ink-900/80 to-teal-900/40" />
 
         <div className="relative z-10 space-y-2">
           <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-400/30">
@@ -133,15 +128,20 @@ export const LoginPage: React.FC = () => {
       </div>
 
       {/* Form Content (7 cols) */}
-      <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-center">
+      <div className="lg:col-span-7 p-7 sm:p-10 flex flex-col justify-center bg-white">
         <div className="text-center pb-5">
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Sign in to CivicWatch</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <h1 className="text-2xl sm:text-[26px] font-bold text-slate-900 tracking-tight">
+            Sign in to{' '}
+            <span className="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
+              CivicWatch
+            </span>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Enter your credentials to manage, track, or resolve neighborhood issues.
           </p>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-4">
           {serverError && (
             <div
               role="alert"
@@ -157,7 +157,9 @@ export const LoginPage: React.FC = () => {
               label="Email address"
               type="email"
               placeholder="you@example.com"
-              leftIcon={<Mail className="h-4 w-4" />}
+              leftIcon={<Mail className="h-4 w-4 text-slate-400" />}
+              className="border-teal-400 focus:border-teal-500 focus:ring-teal-500/20"
+              hideRequiredAsterisk={true}
               error={errors.email?.message}
               required
               {...register('email')}
@@ -168,12 +170,14 @@ export const LoginPage: React.FC = () => {
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
-                leftIcon={<Lock className="h-4 w-4" />}
+                leftIcon={<Lock className="h-4 w-4 text-slate-400" />}
+                className="border-slate-200 focus:border-teal-500 focus:ring-teal-500/20"
+                hideRequiredAsterisk={true}
                 rightIcon={
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="text-slate-400 hover:text-slate-600 focus:outline-none"
+                    className="text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -186,54 +190,58 @@ export const LoginPage: React.FC = () => {
               <div className="mt-1 flex justify-end">
                 <Link
                   to="/forgot-password"
-                  className="text-xs text-teal-600 hover:text-teal-800 transition-colors"
+                  className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
                 >
                   Forgot your password?
                 </Link>
               </div>
             </div>
 
-            <Button type="submit" className="w-full" isLoading={isSubmitting}>
-              Sign In
-            </Button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full h-11 rounded-xl bg-gradient-to-r from-teal-500 via-teal-600 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white font-semibold text-sm shadow-md shadow-teal-500/25 hover:shadow-lg hover:shadow-teal-500/35 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              ) : (
+                'Sign In'
+              )}
+            </button>
           </form>
 
           {/* Quick Demo Fill Buttons */}
-          <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-3 text-xs">
-            <div className="flex items-center gap-1.5 font-semibold text-teal-900 mb-2">
+          <div className="rounded-2xl border border-slate-200/70 bg-[#edf5f6]/80 dark:bg-slate-50/60 p-3.5 text-xs mt-1">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-800 mb-2.5">
               <Sparkles className="h-3.5 w-3.5 text-teal-600" />
               <span>Demo Quick-Fill Personas:</span>
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => handleDemoFill('citizen@example.com', 'Citizen')}
-                className="rounded-lg border border-teal-200 bg-white py-1.5 px-2 text-[11px] font-medium text-teal-800 hover:bg-teal-50 transition-colors shadow-2xs"
+                className="rounded-xl border border-teal-300 bg-white/95 py-2 px-2 text-xs font-medium text-slate-800 hover:bg-teal-50 hover:border-teal-500 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                Citizen
+                <User className="h-3.5 w-3.5 text-teal-600" />
+                <span>Citizen</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleDemoFill('admin@example.com', 'Admin')}
-                className="rounded-lg border border-teal-200 bg-white py-1.5 px-2 text-[11px] font-medium text-teal-800 hover:bg-teal-50 transition-colors shadow-2xs"
+                className="rounded-xl border border-teal-300 bg-white/95 py-2 px-2 text-xs font-medium text-slate-800 hover:bg-teal-50 hover:border-teal-500 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                Admin
+                <Key className="h-3.5 w-3.5 text-teal-600" />
+                <span>Admin</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleDemoFill('worker@example.com', 'Worker')}
-                className="rounded-lg border border-teal-200 bg-white py-1.5 px-2 text-[11px] font-medium text-teal-800 hover:bg-teal-50 transition-colors shadow-2xs"
+                className="rounded-xl border border-teal-300 bg-white/95 py-2 px-2 text-xs font-medium text-slate-800 hover:bg-teal-50 hover:border-teal-500 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                Worker
+                <Wrench className="h-3.5 w-3.5 text-teal-600" />
+                <span>Worker</span>
               </button>
             </div>
-          </div>
-
-          <div className="text-center text-xs text-slate-500 pt-1">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-semibold text-teal-600 hover:text-teal-800">
-              Register as a citizen
-            </Link>
           </div>
         </div>
       </div>
