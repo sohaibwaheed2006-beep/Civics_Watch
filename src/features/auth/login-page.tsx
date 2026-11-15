@@ -109,9 +109,9 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-[28px] overflow-hidden shadow-2xl shadow-slate-200/70 border border-slate-100 bg-white">
+    <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 rounded-2xl overflow-hidden shadow-lg dark:shadow-none border border-slate-200 bg-white">
       {/* Visual Hero Panel (5 cols) */}
-      <div className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-8 text-white overflow-hidden bg-ink-900 border-r border-teal-500/20">
+      <div className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-8 text-white overflow-hidden bg-ink-950 border-r border-white/10">
         <img
           src="/images/auth/civic-city.jpg"
           alt="Civic city skyline"
@@ -119,25 +119,26 @@ export const LoginPage: React.FC = () => {
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
-          className="absolute inset-0 h-full w-full object-cover object-center opacity-45 mix-blend-screen"
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-40 grayscale"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-teal-950 via-ink-900/80 to-teal-900/40" />
+        {/* Plain dark scrim: keeps the photo as texture and the copy legible. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/80 to-ink-950/55" />
 
         <div className="relative z-10 space-y-2">
-          <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-400/30">
+          <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-black/30 text-teal-300 border border-white/15">
             Municipal Operations
           </span>
-          <h2 className="text-2xl font-black tracking-tight leading-tight">
+          <h2 className="text-2xl font-bold tracking-tight leading-tight pt-1">
             Building Safer, Cleaner Communities.
           </h2>
-          <p className="text-xs text-teal-100/90 leading-relaxed pt-1">
+          <p className="text-xs text-ink-200/85 leading-relaxed pt-1">
             Real-time citizen reporting and rapid municipal maintenance dispatch for potholes, outages, and public safety.
           </p>
         </div>
 
-        <div className="relative z-10 space-y-3 pt-6 border-t border-teal-800/40 text-xs text-teal-200">
+        <div className="relative z-10 space-y-3 pt-6 border-t border-white/10 text-xs text-ink-200/85">
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="h-2 w-2 rounded-full bg-emerald-400" />
             <span>24/7 City Works Dispatch Active</span>
           </div>
           <div className="flex items-center gap-2">
@@ -152,9 +153,7 @@ export const LoginPage: React.FC = () => {
         <div className="text-center pb-5">
           <h1 className="text-2xl sm:text-[26px] font-bold text-slate-900 tracking-tight">
             Sign in to{' '}
-            <span className="bg-gradient-to-r from-teal-500 to-emerald-500 bg-clip-text text-transparent">
-              CivicWatch
-            </span>
+            <span className="text-teal-600">CivicWatch</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Enter your credentials to manage, track, or resolve neighborhood issues.
@@ -178,7 +177,7 @@ export const LoginPage: React.FC = () => {
               type="email"
               placeholder="you@example.com"
               leftIcon={<Mail className="h-4 w-4 text-slate-400" />}
-              className="border-teal-400 focus:border-teal-500 focus:ring-teal-500/20"
+              className="dark:bg-ink-950"
               hideRequiredAsterisk={true}
               error={errors.email?.message}
               required
@@ -191,7 +190,7 @@ export const LoginPage: React.FC = () => {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 leftIcon={<Lock className="h-4 w-4 text-slate-400" />}
-                className="border-slate-200 focus:border-teal-500 focus:ring-teal-500/20"
+                className="dark:bg-ink-950"
                 hideRequiredAsterisk={true}
                 rightIcon={
                   <button
@@ -220,7 +219,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-11 rounded-xl bg-gradient-to-r from-teal-500 via-teal-600 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white font-semibold text-sm shadow-md shadow-teal-500/25 hover:shadow-lg hover:shadow-teal-500/35 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full h-11 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold text-sm active:scale-[0.99] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
@@ -236,7 +235,7 @@ export const LoginPage: React.FC = () => {
           </form>
 
           {/* Quick Demo Fill Buttons */}
-          <div className="rounded-2xl border border-slate-200/70 bg-[#edf5f6]/80 dark:bg-slate-50/60 p-3.5 text-xs mt-1">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 dark:bg-black/20 p-3.5 text-xs mt-1">
             <div className="flex items-center gap-1.5 font-semibold text-slate-800 mb-2.5">
               <Sparkles className="h-3.5 w-3.5 text-teal-600" />
               <span>Demo Quick-Fill Personas:</span>
@@ -245,7 +244,7 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleDemoFill('citizen@example.com', 'Citizen')}
-                className="rounded-xl border border-teal-300 bg-white/95 py-2 px-2 text-xs font-medium text-slate-800 hover:bg-teal-50 hover:border-teal-500 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                className="rounded-lg border border-slate-200 bg-white py-2 px-2 text-xs font-medium text-slate-800 hover:border-teal-500 hover:text-teal-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <User className="h-3.5 w-3.5 text-teal-600" />
                 <span>Citizen</span>
@@ -253,7 +252,7 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleDemoFill('admin@example.com', 'Admin')}
-                className="rounded-xl border border-teal-300 bg-white/95 py-2 px-2 text-xs font-medium text-slate-800 hover:bg-teal-50 hover:border-teal-500 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                className="rounded-lg border border-slate-200 bg-white py-2 px-2 text-xs font-medium text-slate-800 hover:border-teal-500 hover:text-teal-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Key className="h-3.5 w-3.5 text-teal-600" />
                 <span>Admin</span>
@@ -261,7 +260,7 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleDemoFill('worker@example.com', 'Worker')}
-                className="rounded-xl border border-teal-300 bg-white/95 py-2 px-2 text-xs font-medium text-slate-800 hover:bg-teal-50 hover:border-teal-500 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                className="rounded-lg border border-slate-200 bg-white py-2 px-2 text-xs font-medium text-slate-800 hover:border-teal-500 hover:text-teal-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Wrench className="h-3.5 w-3.5 text-teal-600" />
                 <span>Worker</span>
