@@ -186,7 +186,7 @@ def _request_gemini(
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         last_attempt = attempt == _MAX_ATTEMPTS
         try:
-            with httpx.Client(timeout=settings.AI_TIMEOUT_SECONDS) as client:
+            with httpx.Client(timeout=settings.GEMINI_VISION_TIMEOUT_SECONDS) as client:
                 # Send the API key in a header rather than ?key= so that it
                 # does not land in httpx's DEBUG request-URL logs.
                 response = client.post(

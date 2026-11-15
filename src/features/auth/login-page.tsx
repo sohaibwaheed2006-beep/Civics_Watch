@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -37,6 +37,17 @@ export const LoginPage: React.FC = () => {
       password: '',
     },
   });
+
+  // The free backend sleeps when idle; explain a slow first sign-in.
+  const [slowLogin, setSlowLogin] = useState(false);
+  useEffect(() => {
+    if (!isSubmitting) {
+      setSlowLogin(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSlowLogin(true), 5000);
+    return () => window.clearTimeout(timer);
+  }, [isSubmitting]);
 
   const onSubmit = async (data: LoginFormData) => {
     setServerError(null);
@@ -208,6 +219,11 @@ export const LoginPage: React.FC = () => {
                 'Sign In'
               )}
             </button>
+            {isSubmitting && slowLogin && (
+              <p className="text-center text-xs text-slate-500" role="status">
+                Waking up the server, this can take up to a minute the first time…
+              </p>
+            )}
           </form>
 
           {/* Quick Demo Fill Buttons */}

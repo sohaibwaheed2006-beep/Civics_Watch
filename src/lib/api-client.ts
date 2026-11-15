@@ -69,13 +69,50 @@ function normalizePage(payload: unknown): unknown {
   };
 }
 
+// The production backend runs on a free Render instance that sleeps when idle
+// and needs ~30-50 s to wake up. A short timeout turned every first request
+// after a quiet spell (login, photo analysis) into "Could not reach the
+// server", so allow a full cold start.
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  timeout: 60000,
 });
+
+// ---------------------------------------------------------------------------
+// Backend wake-up
+//
+// Ping /health as soon as the app loads so the server is already waking while
+// the user reads the login page or picks a photo, and keep pinging while the
+// tab is visible so it does not fall asleep mid-session.
+// ---------------------------------------------------------------------------
+const KEEP_AWAKE_INTERVAL_MS = 10 * 60 * 1000;
+
+function healthUrl(): string | null {
+  try {
+    return new URL('/health', new URL(API_BASE_URL, window.location.origin)).toString();
+  } catch {
+    return null;
+  }
+}
+
+export function warmUpBackend(): void {
+  const url = healthUrl();
+  if (!url || typeof fetch === 'undefined') return;
+  const ping = () => {
+    if (document.visibilityState === 'hidden') return;
+    fetch(url, { method: 'GET', mode: 'cors', cache: 'no-store' }).catch(() => {
+      // Best effort: the real request will surface any error.
+    });
+  };
+  ping();
+  window.setInterval(ping, KEEP_AWAKE_INTERVAL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') ping();
+  });
+}
 
 // Attach bearer token
 apiClient.interceptors.request.use(
@@ -129,7 +166,23 @@ apiClient.interceptors.response.use(
     }
     return response;
   },
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
+    // No response at all (connection dropped while the server was waking,
+    // flaky mobile network): retry once after a short pause. Timeouts are not
+    // retried, since they already waited the full minute.
+    const config = error.config as (AxiosRequestConfig & { _retried?: boolean }) | undefined;
+    if (
+      config &&
+      !error.response &&
+      !config._retried &&
+      error.code !== 'ECONNABORTED' &&
+      error.code !== 'ERR_CANCELED'
+    ) {
+      config._retried = true;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      return apiClient.request(config);
+    }
+
     if (error.response?.status === 401) {
       const currentPath = window.location.pathname;
       if (!currentPath.includes('/login') && !currentPath.includes('/register')) {

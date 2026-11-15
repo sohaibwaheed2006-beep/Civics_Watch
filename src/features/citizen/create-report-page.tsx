@@ -9,6 +9,7 @@ import { reportService } from '@/services/report-service';
 import { geocodingService } from '@/services/geocoding-service';
 import { aiService } from '@/services/ai-service';
 import { parseApiError } from '@/lib/api-errors';
+import { prepareImageForUpload } from '@/lib/image';
 import { CATEGORY_DETAILS } from '@/lib/constants';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -209,10 +210,14 @@ export const CreateReportPage: React.FC = () => {
     });
 
   // --- The core photo-first pipeline --------------------------------------
-  const processPhoto = async (file: File) => {
+  const processPhoto = async (original: File) => {
     setUploadError(null);
     setPhotoProblem(null);
     setServerError(null);
+
+    // Shrink big phone photos (and convert HEIC where the browser can) so the
+    // upload is fast on mobile data and stays under the size limit.
+    const file = await prepareImageForUpload(original);
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       setUploadError('Only JPG, PNG, and WebP images are supported.');
@@ -232,11 +237,22 @@ export const CreateReportPage: React.FC = () => {
     setLocating(true);
     setAnalysisNote('Looking at your photo and detecting the issue…');
 
+    // If the server was asleep the first analysis can take up to a minute;
+    // say so instead of leaving the user staring at a spinner.
+    const slowNote = window.setTimeout(
+      () =>
+        setAnalysisNote(
+          'Still working. The server may be waking up, this can take up to a minute the first time…'
+        ),
+      8000
+    );
+
     // Kick off AI analysis and GPS in parallel.
     const [analysis, coords] = await Promise.all([
       aiService.analyzePhoto(file),
       detectLocation(),
     ]);
+    window.clearTimeout(slowNote);
     setLocating(false);
     lastCoordsRef.current = coords;
 

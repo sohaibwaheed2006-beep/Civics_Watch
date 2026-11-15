@@ -72,9 +72,12 @@ export const aiService = {
     const form = new FormData();
     form.append('file', file);
     try {
+      // A cold server start (~30-50 s) plus up to two Gemini attempts can
+      // exceed the default timeout, so give photo analysis extra time.
       const response = await apiClient.post<VisionAutoFill>(
         '/ai/vision/analyze',
-        form
+        form,
+        { timeout: 120000 }
       );
       const data: VisionAutoFill = {
         ...response.data,
@@ -104,7 +107,7 @@ export const aiService = {
       return {
         status: 'unavailable',
         reason: parsed.isNetworkError
-          ? 'Could not reach the server to analyze your photo. Check your connection and try again.'
+          ? 'The server took too long to respond. It may still be starting up, so tap "Try again" in a few seconds. If it keeps happening, check your internet connection.'
           : parsed.code === 'vision_unavailable'
             ? parsed.message
             : 'Photo analysis is temporarily unavailable. Please try again in a moment.',

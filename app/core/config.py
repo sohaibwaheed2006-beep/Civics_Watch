@@ -127,6 +127,11 @@ class Settings(BaseSettings):
     # --- Google AI (Gemini) ----------------------------------------------
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-flash-lite-latest"
+    #: Per-attempt timeout for Gemini *vision* calls. Image requests are much
+    #: slower than text ones and occasionally take 10-20 s; the generic
+    #: AI_TIMEOUT_SECONDS (10 s) turned those into "analysis unavailable".
+    #: Two attempts must still fit inside the frontend's request timeout.
+    GEMINI_VISION_TIMEOUT_SECONDS: int = 25
 
     #: Resolution-note quality check: match scores below this flag the closure
     #: for admin review. The worker's photo must look like the described fix.
