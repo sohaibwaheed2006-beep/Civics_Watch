@@ -64,11 +64,6 @@ export const CreateReportPage: React.FC = () => {
   const lastCoordsRef = useRef<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
-  // Whether the pin was placed from a device GPS fix, and how accurate that
-  // fix was (metres). Used to warn the citizen to verify the pin when the
-  // location is approximate or had to be set manually.
-  const [locationAutoDetected, setLocationAutoDetected] = useState(false);
-  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
 
   // Live in-browser camera capture (getUserMedia). Works on desktop (webcam)
   // and mobile (rear camera), showing a live feed with a shutter button.
@@ -296,8 +291,6 @@ export const CreateReportPage: React.FC = () => {
     if (coords) {
       fill.latitude = coords.lat;
       fill.longitude = coords.lng;
-      setLocationAutoDetected(true);
-      setGpsAccuracy(coords.accuracy);
       const address = await geocodingService.reverseGeocode(coords.lat, coords.lng);
       if (address) {
         fill.address = address;
@@ -305,8 +298,6 @@ export const CreateReportPage: React.FC = () => {
     } else {
       // No device fix: leave the pin unset so the citizen must place it on the
       // map rather than silently submitting the default map center.
-      setLocationAutoDetected(false);
-      setGpsAccuracy(null);
       if (locationHint) {
         fill.address = locationHint;
       }
@@ -369,8 +360,6 @@ export const CreateReportPage: React.FC = () => {
     setCameraError(null);
     setAnalysisNote(null);
     setAiConfidence(null);
-    setLocationAutoDetected(false);
-    setGpsAccuracy(null);
     setPendingFill(null);
     reset();
   };
@@ -381,8 +370,6 @@ export const CreateReportPage: React.FC = () => {
   const handleLocationChange = async (lat: number, lng: number) => {
     setValue('latitude', lat, { shouldValidate: true });
     setValue('longitude', lng, { shouldValidate: true });
-    setLocationAutoDetected(true);
-    setGpsAccuracy(null);
     const address = await geocodingService.reverseGeocode(lat, lng);
     if (address) setValue('address', address, { shouldValidate: true });
   };
@@ -793,7 +780,6 @@ export const CreateReportPage: React.FC = () => {
               {(() => {
                 const hasPin =
                   typeof latitudeValue === 'number' && typeof longitudeValue === 'number';
-                const approximate = gpsAccuracy !== null && gpsAccuracy > 100;
                 if (!hasPin) {
                   return (
                     <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-900">
@@ -806,28 +792,9 @@ export const CreateReportPage: React.FC = () => {
                     </div>
                   );
                 }
-                if (approximate) {
-                  return (
-                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-900">
-                      <MapPin className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                      <p>
-                        This location is approximate (accurate to about{' '}
-                        {Math.round(gpsAccuracy as number)}m — likely a Wi-Fi/network
-                        estimate, not GPS). Please drag the pin to the exact spot so
-                        crews are dispatched to the right place.
-                      </p>
-                    </div>
-                  );
-                }
-                return (
-                  <div className="flex items-start gap-2.5 rounded-xl border border-teal-200 bg-teal-50/60 p-3.5 text-xs text-teal-900">
-                    <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0 mt-0.5" />
-                    <p>
-                      Location pinned{locationAutoDetected ? ' from your device' : ''}.
-                      Drag the pin if it isn't exactly right.
-                    </p>
-                  </div>
-                );
+                // A detected location needs no banner: the pin on the map
+                // already shows it.
+                return null;
               })()}
 
               <LocationPicker
