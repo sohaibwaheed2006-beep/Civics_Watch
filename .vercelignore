@@ -1,15 +1,17 @@
 # Vercel only builds the Vite frontend. Keep the FastAPI backend (deployed
 # separately on Render) and Python tooling out of the frontend deployment so
 # the upload is smaller and Vercel never tries to treat it as a Python project.
-app/
-alembic.ini
-requirements.txt
+# NOTE: a leading "/" anchors a rule to the repo root. Without it, "app/"
+# would also match the frontend's src/app/ folder and break the build.
+/app/
+/alembic.ini
+/requirements.txt
 .venv/
 venv/
 __pycache__/
 **/__pycache__/
 *.pyc
-uploads/
-docs/
+/uploads/
+/docs/
 .env
 .pytest_cache/
