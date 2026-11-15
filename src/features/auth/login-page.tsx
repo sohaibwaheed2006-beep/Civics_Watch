@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Eye, EyeOff, Lock, Mail, ShieldAlert, Sparkles, User, Key, Wrench, Loader2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+  const { login, isAuthenticated, sessionVerified } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,6 +48,15 @@ export const LoginPage: React.FC = () => {
     const timer = window.setTimeout(() => setSlowLogin(true), 5000);
     return () => window.clearTimeout(timer);
   }, [isSubmitting]);
+
+  // Already signed in (and confirmed by the server)? Skip the form and go to
+  // the right dashboard. Not while a sign-in is in flight: onSubmit does its
+  // own redirect (including back to the page the user came from).
+  useEffect(() => {
+    if (sessionVerified && isAuthenticated && !isSubmitting) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [sessionVerified, isAuthenticated, isSubmitting, navigate]);
 
   const onSubmit = async (data: LoginFormData) => {
     setServerError(null);

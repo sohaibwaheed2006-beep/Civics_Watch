@@ -8,7 +8,11 @@ import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { ROLE_DETAILS } from '@/lib/constants';
 
 export const PublicLayout: React.FC = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, sessionVerified, logout } = useAuth();
+  // Only greet a user the server has confirmed. A session merely remembered
+  // by this browser (possibly expired, or from an earlier demo login) must not
+  // show someone's name on the sign-in page.
+  const showUser = isAuthenticated && sessionVerified && !!user;
   const navigate = useNavigate();
 
   const getDashboardRoute = () => {
@@ -49,7 +53,7 @@ export const PublicLayout: React.FC = () => {
 
           <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
             <ThemeToggle />
-            {isAuthenticated && user ? (
+            {showUser && user ? (
               <div className="flex items-center gap-3">
                 <div className="hidden sm:flex items-center gap-2 pr-2 border-r border-slate-200">
                   <Avatar

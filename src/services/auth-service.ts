@@ -43,12 +43,26 @@ export const authService = {
     return response.data;
   },
 
-  async getCurrentUser(): Promise<User> {
-    // Called on app bootstrap to restore a session from a stored token.
+  /**
+   * Ask the server who the stored token belongs to. Throws on ANY failure
+   * (clearing the session on 401), so a resolved value means the session is
+   * confirmed by the backend, not just remembered by this browser.
+   */
+  async fetchCurrentUser(): Promise<User> {
     try {
       const response = await apiClient.get<User>('/auth/me');
       authStorage.setUser(response.data);
       return response.data;
+    } catch (error) {
+      if ((error as AxiosError)?.response?.status === 401) authStorage.clear();
+      throw error;
+    }
+  },
+
+  async getCurrentUser(): Promise<User> {
+    // Called on app bootstrap to restore a session from a stored token.
+    try {
+      return await authService.fetchCurrentUser();
     } catch (error) {
       const status = (error as AxiosError)?.response?.status;
       // A 401 means the stored token is invalid or expired: the session is

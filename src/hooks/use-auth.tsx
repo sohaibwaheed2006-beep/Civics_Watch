@@ -9,6 +9,13 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /**
+   * True only once the backend has confirmed the session (login, or a
+   * successful /auth/me). A user restored from localStorage is NOT verified
+   * until then. Public pages use this so they never greet a visitor with a
+   * stale or expired account.
+   */
+  sessionVerified: boolean;
   login: (credentials: LoginCredentials) => Promise<User>;
   register: (data: RegisterData) => Promise<User>;
   logout: () => Promise<void>;
@@ -22,23 +29,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(() => authStorage.getUser<User>());
   const [token, setToken] = useState<string | null>(() => authStorage.getToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [sessionVerified, setSessionVerified] = useState<boolean>(false);
 
   const refreshUser = useCallback(async () => {
     try {
       const currentToken = authStorage.getToken();
       if (!currentToken) {
+        authStorage.clear();
         setUser(null);
         setToken(null);
-        setIsLoading(false);
+        setSessionVerified(false);
         return;
       }
-      const currentUser = await authService.getCurrentUser();
-      setUser(currentUser);
-      setToken(currentToken);
-    } catch {
-      authStorage.clear();
-      setUser(null);
-      setToken(null);
+      try {
+        const currentUser = await authService.fetchCurrentUser();
+        setUser(currentUser);
+        setToken(currentToken);
+        setSessionVerified(true);
+      } catch (error) {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        const storedUser = authStorage.getUser<User>();
+        if (status === undefined && storedUser) {
+          // Server unreachable (asleep / offline): keep the remembered
+          // session for protected pages, but it stays unverified.
+          setUser(storedUser);
+          setToken(currentToken);
+          setSessionVerified(false);
+        } else {
+          authStorage.clear();
+          setUser(null);
+          setToken(null);
+          setSessionVerified(false);
+        }
+      }
     } finally {
       setIsLoading(false);
     }
@@ -54,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await authService.login(credentials);
       setUser(res.user);
       setToken(res.accessToken);
+      setSessionVerified(true);
       // Invalidate existing queries
       queryClient.clear();
       return res.user;
@@ -76,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setUser(null);
       setToken(null);
+      setSessionVerified(false);
       queryClient.clear();
       setIsLoading(false);
     }
@@ -93,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: Boolean(user && token),
         isLoading,
+        sessionVerified,
         login,
         register,
         logout,
