@@ -4,10 +4,11 @@ import { Role } from '@/types/auth';
 export const APP_NAME = import.meta.env.VITE_APP_NAME || 'Neighborhood Issue Reporter';
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
+// Default map view: all of Pakistan.
 export const DEFAULT_MAP_CONFIG = {
-  lat: Number(import.meta.env.VITE_MAP_DEFAULT_LAT) || 40.7128,
-  lng: Number(import.meta.env.VITE_MAP_DEFAULT_LNG) || -74.006,
-  zoom: Number(import.meta.env.VITE_MAP_DEFAULT_ZOOM) || 13,
+  lat: Number(import.meta.env.VITE_MAP_DEFAULT_LAT) || 30.3753,
+  lng: Number(import.meta.env.VITE_MAP_DEFAULT_LNG) || 69.3451,
+  zoom: Number(import.meta.env.VITE_MAP_DEFAULT_ZOOM) || 5,
 };
 
 export const CATEGORY_DETAILS: Record<

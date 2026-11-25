@@ -720,9 +720,9 @@ VITE_API_BASE_URL=http://localhost:8000/api/v1
 VITE_APP_NAME=Neighborhood Issue Reporter
 
 # Default Map Center (Leaflet / OpenStreetMap)
-VITE_MAP_DEFAULT_LAT=40.7128
-VITE_MAP_DEFAULT_LNG=-74.0060
-VITE_MAP_DEFAULT_ZOOM=13
+VITE_MAP_DEFAULT_LAT=30.3753
+VITE_MAP_DEFAULT_LNG=69.3451
+VITE_MAP_DEFAULT_ZOOM=5
 
 # Fallback adapter when backend is unreachable or in preview/mock mode
 VITE_ENABLE_MOCK_FALLBACK=true

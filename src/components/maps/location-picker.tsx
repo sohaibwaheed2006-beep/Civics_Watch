@@ -39,12 +39,14 @@ const MapEventsHandler: React.FC<{
   return null;
 };
 
-// Map recentering controller
-const ChangeView: React.FC<{ center: [number, number]; zoom?: number }> = ({ center, zoom }) => {
+// Map recentering controller. `minZoom` zooms in (never out) so a picked spot
+// isn't left on the country-wide default view.
+const ChangeView: React.FC<{ center: [number, number]; minZoom?: number }> = ({ center, minZoom }) => {
   const map = useMap();
+  const [lat, lng] = center;
   useEffect(() => {
-    map.setView(center, zoom || map.getZoom());
-  }, [center, zoom, map]);
+    map.setView([lat, lng], Math.max(map.getZoom(), minZoom ?? 0));
+  }, [lat, lng, minZoom, map]);
   return null;
 };
 
@@ -140,7 +142,10 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapEventsHandler onSelect={onChange} />
-          <ChangeView center={[currentLat, currentLng]} />
+          <ChangeView
+            center={[currentLat, currentLng]}
+            minZoom={hasSelectedPosition ? 15 : undefined}
+          />
 
           {hasSelectedPosition && (
             <Marker
